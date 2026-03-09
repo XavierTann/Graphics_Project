@@ -1,0 +1,44 @@
+[
+{
+  "directory": "/Users/xaviertan/Graphics_Project/build",
+  "command": "/usr/bin/clang++  -I/Users/xaviertan/Graphics_Project/include -iframework /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/FireSimulationUI.dir/src/main.cpp.o -c /Users/xaviertan/Graphics_Project/src/main.cpp",
+  "file": "/Users/xaviertan/Graphics_Project/src/main.cpp",
+  "output": "CMakeFiles/FireSimulationUI.dir/src/main.cpp.o"
+},
+{
+  "directory": "/Users/xaviertan/Graphics_Project/build",
+  "command": "/usr/bin/clang++  -I/Users/xaviertan/Graphics_Project/include -iframework /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/FireSimulationUI.dir/include/imgui.cpp.o -c /Users/xaviertan/Graphics_Project/include/imgui.cpp",
+  "file": "/Users/xaviertan/Graphics_Project/include/imgui.cpp",
+  "output": "CMakeFiles/FireSimulationUI.dir/include/imgui.cpp.o"
+},
+{
+  "directory": "/Users/xaviertan/Graphics_Project/build",
+  "command": "/usr/bin/clang++  -I/Users/xaviertan/Graphics_Project/include -iframework /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/FireSimulationUI.dir/include/imgui_draw.cpp.o -c /Users/xaviertan/Graphics_Project/include/imgui_draw.cpp",
+  "file": "/Users/xaviertan/Graphics_Project/include/imgui_draw.cpp",
+  "output": "CMakeFiles/FireSimulationUI.dir/include/imgui_draw.cpp.o"
+},
+{
+  "directory": "/Users/xaviertan/Graphics_Project/build",
+  "command": "/usr/bin/clang++  -I/Users/xaviertan/Graphics_Project/include -iframework /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/FireSimulationUI.dir/include/imgui_widgets.cpp.o -c /Users/xaviertan/Graphics_Project/include/imgui_widgets.cpp",
+  "file": "/Users/xaviertan/Graphics_Project/include/imgui_widgets.cpp",
+  "output": "CMakeFiles/FireSimulationUI.dir/include/imgui_widgets.cpp.o"
+},
+{
+  "directory": "/Users/xaviertan/Graphics_Project/build",
+  "command": "/usr/bin/clang++  -I/Users/xaviertan/Graphics_Project/include -iframework /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/FireSimulationUI.dir/include/imgui_tables.cpp.o -c /Users/xaviertan/Graphics_Project/include/imgui_tables.cpp",
+  "file": "/Users/xaviertan/Graphics_Project/include/imgui_tables.cpp",
+  "output": "CMakeFiles/FireSimulationUI.dir/include/imgui_tables.cpp.o"
+},
+{
+  "directory": "/Users/xaviertan/Graphics_Project/build",
+  "command": "/usr/bin/clang++  -I/Users/xaviertan/Graphics_Project/include -iframework /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/FireSimulationUI.dir/include/backends/imgui_impl_glfw.cpp.o -c /Users/xaviertan/Graphics_Project/include/backends/imgui_impl_glfw.cpp",
+  "file": "/Users/xaviertan/Graphics_Project/include/backends/imgui_impl_glfw.cpp",
+  "output": "CMakeFiles/FireSimulationUI.dir/include/backends/imgui_impl_glfw.cpp.o"
+},
+{
+  "directory": "/Users/xaviertan/Graphics_Project/build",
+  "command": "/usr/bin/clang++  -I/Users/xaviertan/Graphics_Project/include -iframework /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/FireSimulationUI.dir/include/backends/imgui_impl_opengl3.cpp.o -c /Users/xaviertan/Graphics_Project/include/backends/imgui_impl_opengl3.cpp",
+  "file": "/Users/xaviertan/Graphics_Project/include/backends/imgui_impl_opengl3.cpp",
+  "output": "CMakeFiles/FireSimulationUI.dir/include/backends/imgui_impl_opengl3.cpp.o"
+}
+]
