@@ -1,0 +1,28 @@
+# Visual Studio
+.vs/
+Debug/
+Release/
+x64/
+*.user
+*.suo
+*.db
+*.opensdf
+*.sdf
+*.ipch
+*.ap
+
+# CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config
+config.txt
+
+.trae
