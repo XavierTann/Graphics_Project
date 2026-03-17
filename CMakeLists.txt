@@ -53,6 +53,13 @@ if(APPLE)
     target_link_libraries(FireSimulator PRIVATE "-framework Cocoa" "-framework IOKit" "-framework CoreVideo")
 endif()
 
+if(APPLE)
+    target_compile_definitions(FireSimulator PRIVATE
+        GLFW_EXPOSE_NATIVE_COCOA
+        GLFW_EXPOSE_NATIVE_NSGL
+    )
+endif()
+
 if(UNIX AND NOT APPLE)
     target_link_libraries(FireSimulator PRIVATE pthread dl)
 endif()

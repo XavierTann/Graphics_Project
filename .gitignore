@@ -26,3 +26,15 @@ Thumbs.db
 config.txt
 
 .trae
+
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+compile_commands.json
+*.o
+*.obj
+*.out
+*.exe
+*.dSYM/
