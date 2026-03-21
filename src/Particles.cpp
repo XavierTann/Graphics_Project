@@ -1,7 +1,7 @@
 #include "Particles.h"
 #include <cmath>
 #include <algorithm>
-#include <cstdlib> // for rand()
+#include <cstdlib> 
 
 void ParticleSystem::configure(const EmitterSettings& e, const GlobalParams& g) {
     emitter = e;
@@ -29,52 +29,36 @@ void ParticleSystem::setDisturbers(const std::vector<Disturber>& d) {
     disturbers = d;
 }
 
-// This function spawns flame particles with randomized initial velocity and lifetime.
-// The source used: (rand() % 100 - 50) / FIRE_WIDTH
-// FIRE_WIDTH was 300.0f. So range [-0.166, 0.166] roughly.
-// The emitter radius serves as the width/depth control.
+
 void ParticleSystem::spawn(int count) {
     particles.reserve(particles.size() + count);
     for (int i = 0; i < count; ++i) {
-        float s = (float)(particles.size() + i); // Seed
-        
-        // "Graphic Fire Proj" Spawn Logic:
-        // pos = emitterPos (origin)
-        // vel.x = (rand % 100 - 50) / 300.0f  -> range [-0.16, 0.16]
-        // vel.y = 0.3f + (rand % 100) / 500.0f -> range [0.3, 0.5]
-        // vel.z = (rand % 100 - 50) / 500.0f  -> range [-0.1, 0.1]
-        // maxLife = 1.0f + (rand % 100) / 200.0f -> range [1.0, 1.5]
-        // size = 0.1f (initial)
-
-        // This mapping converts the reference spawn behavior into the current emitter settings.
-        // Use emitter.radius to scale the spread (width/depth).
-        // Use emitter.initialSpeedMin/Max to scale vertical speed.
+        float s = (float)(particles.size() + i); 
         
         glm::vec3 p = emitter.origin;
         
-        // The pseudo-random function randf is used to provide deterministic variation from the particle seed.
-        float vx = randf(-0.5f, 0.5f, s * 1.1f) * emitter.radius; // Spread X
-        float vy = randf(emitter.initialSpeedMin, emitter.initialSpeedMax, s * 2.2f); // Upward speed
-        float vz = randf(-0.5f, 0.5f, s * 3.3f) * emitter.radius; // Spread Z (depth)
+        float vx = randf(-0.5f, 0.5f, s * 1.1f) * emitter.radius; 
+        float vy = randf(emitter.initialSpeedMin, emitter.initialSpeedMax, s * 2.2f);
+        float vz = randf(-0.5f, 0.5f, s * 3.3f) * emitter.radius;
         
         Particle pr;
         pr.pos = p;
         pr.vel = glm::vec3(vx, vy, vz);
         
-        // Lifetime logic
+
         float lifeVar = randf(0.0f, 0.5f, s * 4.4f);
-        pr.maxLife = emitter.lifetimeBase + lifeVar; // Use configured base lifetime
+        pr.maxLife = emitter.lifetimeBase + lifeVar; 
         pr.lifetime = pr.maxLife;
         
-        pr.size = emitter.baseSize; // Initial size
-        pr.color = glm::vec4(1.0f, 0.9f, 0.2f, 1.0f); // Start yellow
+        pr.size = emitter.baseSize;
+        pr.color = glm::vec4(1.0f, 0.9f, 0.2f, 1.0f);
         pr.seed = s;
         
         particles.push_back(pr);
     }
 }
 
-// Simple Pseudo-Noise
+
 float ParticleSystem::noise(float x, float y, float z) const {
     float ptr = std::sin(x * 12.9898f + y * 78.233f + z * 151.7182f) * 43758.5453f;
     return ptr - std::floor(ptr);
@@ -82,26 +66,15 @@ float ParticleSystem::noise(float x, float y, float z) const {
 
 glm::vec3 ParticleSystem::computeCurl(const glm::vec3& p) const {
     const float eps = 0.1f;
-    
-    // Partial derivatives (finite differences)
-    // n1 = noise(x, y+eps, z), n2 = noise(x, y-eps, z)
-    // dy_noise = (n1 - n2) / (2*eps)
-    // This creates a vector field from a scalar potential field.
-    // A typical 3D curl-noise implementation requires a vector potential field or multiple scalar potentials.
-    // Three decorrelated noise samples are used to approximate a vector potential field.
-    
+   
     auto potential = [&](float x, float y, float z) -> glm::vec3 {
         return glm::vec3(
             noise(x, y, z),
-            noise(x + 100.0f, y, z), // Offset for decorrelation
+            noise(x + 100.0f, y, z), 
             noise(x, y, z + 100.0f)
         );
     };
-    
-    // Curl components:
-    // x = dPz/dy - dPy/dz
-    // y = dPx/dz - dPz/dx
-    // z = dPy/dx - dPx/dy
+   
     
     glm::vec3 p_dy_plus = potential(p.x, p.y + eps, p.z);
     glm::vec3 p_dy_minus = potential(p.x, p.y - eps, p.z);
@@ -124,7 +97,6 @@ glm::vec3 ParticleSystem::computeCurl(const glm::vec3& p) const {
 
 void ParticleSystem::update(float dt, float time) {
     for (auto& p : particles) {
-        // ... (Logic from "Graphic Fire Proj") ...
         
         p.lifetime -= dt;
         if (p.lifetime <= 0.0f) continue;
@@ -183,15 +155,11 @@ void ParticleSystem::update(float dt, float time) {
             continue;
         }
 
-        // Physics update
         glm::vec3 externalForces = params.wind; 
         externalForces.y += params.buoyancy * 0.5f; 
-        
-        // Curl Noise Turbulence
-        // Scale position by frequency to control "size" of swirls
+       
         glm::vec3 curlPos = p.pos * params.turbFreq;
-        // Add time to animate the noise field (flow)
-        curlPos.y -= time * params.turbFreq; // Move field up (or fire down through field)
+        curlPos.y -= time * params.turbFreq; 
         
         glm::vec3 curl = computeCurl(curlPos);
         externalForces += curl * params.turbAmp;
@@ -229,35 +197,24 @@ void ParticleSystem::update(float dt, float time) {
         }
 
         p.vel += externalForces * dt;
-        p.vel.x *= 0.99f; // Drag 
+        p.vel.x *= 0.99f; 
         p.vel.z *= 0.99f; 
         
         p.pos += p.vel * dt;
-
-        
-        // Size update: Curve from source
-        // Formula: base_size * (1 - (2t - 1)^2)
-        // This creates a parabola: starts 0, peaks at t=0.5, ends 0.
         float curve = 1.0f - std::pow(2.0f * t - 1.0f, 2.0f);
         p.size = emitter.baseSize * curve;
         
-        // Color update: Logic from source
         if (t < 0.5f) {
-            // Yellow to Orange
-            // mix(Yellow, Orange, t * 2.0)
             glm::vec4 yellow(1.0f, 0.9f, 0.2f, 1.0f);
             glm::vec4 orange(1.0f, 0.4f, 0.0f, 1.0f);
             p.color = glm::mix(yellow, orange, t * 2.0f);
         } else {
-            // Orange to Dark Red (Transparent)
-            // mix(Orange, DarkRed, (t - 0.5) * 2.0)
             glm::vec4 orange(1.0f, 0.4f, 0.0f, 1.0f);
-            glm::vec4 darkRed(0.4f, 0.0f, 0.0f, 0.0f); // Alpha goes to 0
+            glm::vec4 darkRed(0.4f, 0.0f, 0.0f, 0.0f);
             p.color = glm::mix(orange, darkRed, (t - 0.5f) * 2.0f);
         }
     }
     
-    // Remove dead particles
     particles.erase(std::remove_if(particles.begin(), particles.end(),
         [](const Particle& pr){ return pr.lifetime <= 0.0f; }), particles.end());
 }
@@ -266,12 +223,9 @@ void ParticleSystem::buildInstanceData(std::vector<InstanceAttrib>& out, const g
     out.clear();
     out.reserve(particles.size());
     for (const auto& p : particles) {
-        // Screen-space culling
         glm::vec4 clipSpace = viewProj * glm::vec4(p.pos, 1.0f);
-        if (clipSpace.w > 0.0f) { // Project to NDC
+        if (clipSpace.w > 0.0f) { 
             glm::vec3 ndc = glm::vec3(clipSpace) / clipSpace.w;
-            // Check if outside NDC bounds with a margin for particle size
-            // Margin 1.2 covers most cases where center is off-screen but edge is visible
             if (std::abs(ndc.x) > 1.2f || std::abs(ndc.y) > 1.2f) {
                 continue; 
             }
@@ -280,7 +234,7 @@ void ParticleSystem::buildInstanceData(std::vector<InstanceAttrib>& out, const g
         InstanceAttrib inst;
         inst.pos = p.pos;
         inst.size = p.size;
-        inst.color = p.color; // Pass calculated color
+        inst.color = p.color; 
         out.push_back(inst);
     }
 }
@@ -319,11 +273,9 @@ void ParticleSystem::spawnAt(const glm::vec3& pos, float speed) {
 
 void ParticleSystem::buildSmokeEmitPositions(std::vector<glm::vec3>& out) const {
     out.clear();
-    // This function collects positions where smoke should be spawned based on flame particle age.
     for (const auto& p : particles) {
         float t = 1.0f - (p.lifetime / p.maxLife);
-        if (t > 0.8f && t < 0.9f) { // Small window to emit smoke
-             // Probabilistic emission to avoid too much smoke
+        if (t > 0.8f && t < 0.9f) {
              if (randf(0.0f, 1.0f, p.seed * t) > 0.8f) {
                  out.push_back(p.pos);
              }
@@ -333,5 +285,5 @@ void ParticleSystem::buildSmokeEmitPositions(std::vector<glm::vec3>& out) const 
 
 void ParticleSystem::reset() {
     particles.clear();
-    particles.reserve(2000); // Pre-allocate memory to avoid frequent reallocations
+    particles.reserve(2000);
 }
