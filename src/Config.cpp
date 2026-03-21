@@ -1,9 +1,18 @@
 #include "Config.h"
 #include <fstream>
 
-static void writeKV(std::ofstream& f, const char* k, float v) { f << k << "=" << v << "\n"; }
-static void writeKV3(std::ofstream& f, const char* k, const glm::vec3& v) { f << k << "=" << v.x << "," << v.y << "," << v.z << "\n"; }
-static bool readKV3(const std::string& line, const char* k, glm::vec3& out) {
+//helper function to write a key-value pair to the config file
+static void writeKV(std::ofstream& f, const char* k, float v) {
+    f << k << "=" << v << "\n";
+} 
+
+//helper function to write a vec3 key-value pair to the config file
+static void writeKV3(std::ofstream& f, const char* k, const glm::vec3& v) { 
+    f << k << "=" << v.x << "," << v.y << "," << v.z << "\n";
+}
+
+//helper function to read a vec3 key-value pair from a line in the config file
+static bool readKV3(const std::string& line, const char* k, glm::vec3& out) { 
     if (line.rfind(k, 0) != 0) return false;
     auto eq = line.find('=');
     auto c1 = line.find(',', eq + 1);
@@ -14,7 +23,9 @@ static bool readKV3(const std::string& line, const char* k, glm::vec3& out) {
     out.z = std::stof(line.substr(c2 + 1));
     return true;
 }
-static bool readKV(const std::string& line, const char* k, float& out) {
+
+//helper function to read a float key-value pair from a line in the config file
+static bool readKV(const std::string& line, const char* k, float& out) { 
     if (line.rfind(k, 0) != 0) return false;
     auto eq = line.find('=');
     if (eq == std::string::npos) return false;
@@ -22,6 +33,7 @@ static bool readKV(const std::string& line, const char* k, float& out) {
     return true;
 }
 
+// Saves the emitter and global settings to a text file in a simple key=value format
 bool saveConfig(const std::string& path, const EmitterSettings& emitter, const GlobalParams& globals) {
     std::ofstream f(path);
     if (!f.is_open()) return false;
@@ -39,6 +51,7 @@ bool saveConfig(const std::string& path, const EmitterSettings& emitter, const G
     return true;
 }
 
+// Loads the emitter and global settings from a text file in a simple key=value format
 bool loadConfig(const std::string& path, EmitterSettings& emitter, GlobalParams& globals) {
     std::ifstream f(path);
     if (!f.is_open()) return false;
