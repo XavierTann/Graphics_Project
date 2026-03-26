@@ -117,7 +117,7 @@ docker run --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix fire-simula
 - `includes/`: Header libraries (ImGui, GLM, GLFW).
 - `libs/`: Pre-compiled libraries for Windows.
 - `shaders/`: Inline shaders defined in `shaderSource.h`.
-- `data/`: Placeable object meshes (e.g., `.gltf`). If empty, the Objects panel reports “No objects found.”
+- `data/`: Placeable object meshes (e.g., `.glb`). If empty, the Objects panel reports “No objects found.”
 
 ## Credits
 - **OpenGL**: Graphics API.

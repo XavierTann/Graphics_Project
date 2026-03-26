@@ -145,13 +145,22 @@ void Renderer::ensureMeshShader()
     const char* vs =
         "#version 330\n"
         "layout(location=0) in vec3 aPos;\n"
+        "layout(location=1) in vec2 aUV;\n"
         "uniform mat4 MVP;\n"
-        "void main(){ gl_Position = MVP * vec4(aPos,1.0); }\n";
+        "out vec2 vUV;\n"
+        "void main(){ vUV = aUV; gl_Position = MVP * vec4(aPos,1.0); }\n";
     const char* fs =
         "#version 330\n"
         "uniform vec4 uColor;\n"
+        "uniform sampler2D uTex;\n"
+        "uniform int uUseTex;\n"
+        "in vec2 vUV;\n"
         "out vec4 FragColor;\n"
-        "void main(){ FragColor = uColor; }\n";
+        "void main(){\n"
+        "    vec4 base = uColor;\n"
+        "    if (uUseTex == 1) base *= texture(uTex, vUV);\n"
+        "    FragColor = base;\n"
+        "}\n";
     meshShader_ = compileSimpleShader(vs, fs);
 }
 
@@ -217,7 +226,11 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
     glUseProgram(meshShader_);
     int locMVP = glGetUniformLocation(meshShader_, "MVP");
     int locCol = glGetUniformLocation(meshShader_, "uColor");
+    int locUseTex = glGetUniformLocation(meshShader_, "uUseTex");
+    int locTex = glGetUniformLocation(meshShader_, "uTex");
     glDisable(GL_BLEND);
+    glActiveTexture(GL_TEXTURE0);
+    if (locTex >= 0) glUniform1i(locTex, 0);
 
     for (const auto& obj : objects) {
         const GpuMesh* mesh = meshLoader_.get(obj.meshFile);
@@ -231,10 +244,18 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
         glm::vec4 col;
         if (obj.ash >= 1.0f) col = glm::vec4(0.25f, 0.25f, 0.25f, 1.0f);
         else if (obj.burning)     col = glm::vec4(1.0f, 0.45f, 0.05f, 1.0f);
+        else if (mesh->textured)  col = glm::vec4(1.0f);
         else                      col = glm::vec4(0.1f, 0.8f, 0.2f, 1.0f);
 
         glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);
         glUniform4fv(locCol, 1, &col[0]);
+        if (mesh->textured && mesh->texture) {
+            if (locUseTex >= 0) glUniform1i(locUseTex, 1);
+            glBindTexture(GL_TEXTURE_2D, mesh->texture);
+        } else {
+            if (locUseTex >= 0) glUniform1i(locUseTex, 0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
         glBindVertexArray(mesh->vao);
         if (mesh->indexed)
             glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
@@ -242,6 +263,7 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
             glDrawArrays(GL_TRIANGLES, 0, mesh->indexCount);
     }
     glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
     glEnable(GL_BLEND);
 }
 

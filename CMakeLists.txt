@@ -8,6 +8,12 @@ set(SOURCES
     src/main.cpp
     src/Config.cpp
     src/BillboardRenderer.cpp
+    src/Camera.cpp
+    src/Scene.cpp
+    src/SceneObject.cpp
+    src/Renderer.cpp
+    src/UI.cpp
+    src/MeshLoader.cpp
     src/Particles.cpp
     src/glad.c
     includes/imgui/imgui.cpp

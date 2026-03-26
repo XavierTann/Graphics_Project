@@ -10,9 +10,11 @@ struct GpuMesh {
     GLuint vao        = 0;
     GLuint vbo        = 0;
     GLuint ebo        = 0;
+    GLuint texture    = 0;
     int    indexCount = 0;
     bool   indexed    = false;
     bool   valid      = false;
+    bool   textured   = false;
 };
 
 //scans a data directory for mesh files, loads them on demand and caches the resulting GpuMesh objects.
@@ -35,11 +37,11 @@ private:
     std::unordered_map<std::string, GpuMesh> cache_;
     std::string dataDir_ = "data";
 
-    // Build a GpuMesh from a glTF file
-    bool buildGltf(const std::string& meshFile, GpuMesh& out);
+    // Build a GpuMesh from a glb file
+    bool buildGlb(const std::string& meshFile, GpuMesh& out);
 
 
-    // Minimal JSON parser for glTF files
+    // Minimal JSON parser for the embedded JSON chunk in GLB files
     struct JsonValue {
         enum class Type { Null, Bool, Number, String, Array, Object };
         Type type = Type::Null;
