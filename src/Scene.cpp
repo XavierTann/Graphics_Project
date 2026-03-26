@@ -31,6 +31,8 @@ void Scene::init()
     GlobalParams    sg = globals; sg.buoyancy = 0.6f; sg.cooling = 0.1f;
     smokeSys.configure(se, sg);
     smokeSys.setSmoke(true);
+    smokeEnabled = true;
+    smokeWasEnabled_ = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +134,14 @@ GlobalParams Scene::makeFueledGlobals(float intens) const
 
 void Scene::update(float dt, float time, const glm::mat4& viewProj)
 {
+    if (!smokeEnabled) {
+        if (smokeWasEnabled_) smokeSys.reset();
+        smokeInstData.clear();
+        smokeWasEnabled_ = false;
+    } else {
+        smokeWasEnabled_ = true;
+    }
+
     // --- Consume global fuel ---
     if (fuelEnabled) {
         if (fuelInfinite) {
@@ -169,7 +179,7 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
         for (int k = 0; k < spawnCount; ++k) {
             flames.spawnAt(obj.pos,
                 std::max(0.05f, fe.initialSpeedMax));
-            smokeSys.spawnAt(obj.pos, 0.25f);
+            if (smokeEnabled) smokeSys.spawnAt(obj.pos, 0.25f);
         }
 
         // Register as disturber if not fully ashed
@@ -183,8 +193,10 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     }
 
     flames.setDisturbers(disturbers);
-    smokeSys.setDisturbers(disturbers);
-    smokeSys.setSmokeDensity(0.25f + 1.25f * intens + 0.12f * (float)burningCount);
+    if (smokeEnabled) {
+        smokeSys.setDisturbers(disturbers);
+        smokeSys.setSmokeDensity(0.25f + 1.25f * intens + 0.12f * (float)burningCount);
+    }
 
     // --- Spawn main flame particles ---
     static float flameSpawnAcc = 0.0f;
@@ -209,31 +221,37 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     flames.buildInstanceData(flameInstData, viewProj);
 
     // --- Smoke from cooling flames ---
-    std::vector<glm::vec3> emitPositions;
-    flames.buildSmokeEmitPositions(emitPositions);
-    int smokePerEmit = fuelEnabled ? std::max(0, (int)(intens * 3.0f + 0.5f)) : 1;
-    for (const auto& ep : emitPositions)
-        for (int i = 0; i < smokePerEmit; ++i)
-            smokeSys.spawnAt(ep, 0.3f);
+    if (smokeEnabled) {
+        std::vector<glm::vec3> emitPositions;
+        flames.buildSmokeEmitPositions(emitPositions);
+        int smokePerEmit = fuelEnabled ? std::max(0, (int)(intens * 3.0f + 0.5f)) : 1;
+        for (const auto& ep : emitPositions)
+            for (int i = 0; i < smokePerEmit; ++i)
+                smokeSys.spawnAt(ep, 0.3f);
+    }
 
     // --- Configure smoke system ---
-    EmitterSettings se = emitter;
-    se.baseSize = emitter.baseSize * 2.2f;
+    if (smokeEnabled) {
+        EmitterSettings se = emitter;
+        se.baseSize = emitter.baseSize * 2.2f;
 
-    GlobalParams sg = fg;
-    sg.buoyancy = globals.buoyancy * 0.35f;
-    sg.turbAmp = globals.turbAmp * 0.8f;
-    sg.turbFreq = globals.turbFreq * 0.6f;
-    smokeSys.configure(se, sg);
-    smokeSys.setSmoke(true);
-    smokeSys.setTornado(enableWind && tornadoMode,
-        emitter.origin,
-        tornadoStrength * 0.8f,
-        tornadoRadius * 1.2f,
-        tornadoInflow * 0.6f,
-        tornadoUpdraft * 0.8f);
-    smokeSys.update(dt, time);
-    smokeSys.buildInstanceData(smokeInstData, viewProj);
+        GlobalParams sg = fg;
+        sg.buoyancy = globals.buoyancy * 0.35f;
+        sg.turbAmp = globals.turbAmp * 0.8f;
+        sg.turbFreq = globals.turbFreq * 0.6f;
+        smokeSys.configure(se, sg);
+        smokeSys.setSmoke(true);
+        smokeSys.setTornado(enableWind && tornadoMode,
+            emitter.origin,
+            tornadoStrength * 0.8f,
+            tornadoRadius * 1.2f,
+            tornadoInflow * 0.6f,
+            tornadoUpdraft * 0.8f);
+        smokeSys.update(dt, time);
+        smokeSys.buildInstanceData(smokeInstData, viewProj);
+    } else {
+        smokeInstData.clear();
+    }
 
     // --- Build object billboard instance data ---
     objectInstData.clear();
@@ -261,7 +279,7 @@ void Scene::reset()
     flames.reset();
     smokeSys.reset();
     flames.setSmoke(false);
-    smokeSys.setSmoke(true);
+    smokeSys.setSmoke(smokeEnabled);
     fuel = fuelMax;
     flames.spawn(500);
 }

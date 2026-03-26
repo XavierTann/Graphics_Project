@@ -227,7 +227,8 @@ static void renderFrame(float dt, float now)
     renderer.drawMeshes(view, proj, scene.objects);
     renderer.drawObjectBillboards(scene.objectInstData, smokeShader, proj, view, right, up);
     renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up);
-    renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up);
+    if (scene.smokeEnabled)
+        renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up);
 }
 
 /***********************************************************************/

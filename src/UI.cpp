@@ -132,6 +132,7 @@ void UI::drawControlsPanel(const ImGuiIO& io)
                 ImGui::SliderFloat("Tornado Updraft", &scene_->tornadoUpdraft, 0.0f, 10.0f);
             }
         }
+        ImGui::Checkbox("Enable Smoke", &scene_->smokeEnabled);
         ImGui::SliderFloat("Buoyancy", &scene_->globals.buoyancy, 0.0f, 5.0f);
         ImGui::SliderFloat("Cooling", &scene_->globals.cooling, 0.01f, 1.0f);
         ImGui::SliderFloat("Turbulence Amp", &scene_->globals.turbAmp, 0.0f, 2.0f);

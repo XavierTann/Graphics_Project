@@ -33,6 +33,9 @@ public:
     float fuelBurnRate   = 1.0f;
     float addFuelAmount  = 5.0f;
 
+    // ---- Smoke ----
+    bool smokeEnabled = true;
+
     // ---- Scene objects ----
     std::vector<SceneObject> objects;
     int selectedObjectIndex = -1;
@@ -74,4 +77,5 @@ private:
     // Build the fueled copies of emitter/globals for this frame
     EmitterSettings makeFueledEmitter(float intens) const;
     GlobalParams    makeFueledGlobals(float intens) const;
+    bool smokeWasEnabled_ = true;
 };
