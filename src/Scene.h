@@ -1,13 +1,17 @@
 #pragma once
 #include "Particles.h"
 #include "SceneObject.h"
+#include "FluidSolver3D.h"
 #include <vector>
 #include <glm/glm.hpp>
+#include <memory>
 
 // Scene owns all simulation state: particle systems, scene objects,
 // emitter/global settings, fuel, wind, and tornado parameters.
 class Scene {
 public:
+    Scene();
+    ~Scene();
     // ---- Emitter & global physics ----
     EmitterSettings emitter;
     GlobalParams    globals;
@@ -53,6 +57,12 @@ public:
     std::vector<InstanceAttrib> flameInstData;
     std::vector<InstanceAttrib> smokeInstData;
     std::vector<InstanceAttrib> objectInstData;
+
+    // ---- 3D Fluid Solver ----
+    std::unique_ptr<FluidSolver3D> fluidSolver;
+    bool enableFluidSimulation = true;
+    float fluidVolumeScale = 5.0f;
+    glm::vec3 fluidVolumePos = glm::vec3(0.0f, 2.5f, 0.0f);
 
     // Call once after construction to apply default settings.
     void init();

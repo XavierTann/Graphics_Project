@@ -2,10 +2,12 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <vector>
+#include <memory>
 #include "BillboardRenderer.h"
 #include "MeshLoader.h"
 #include "shader.h"
 #include "SceneObject.h"
+#include "VolumeRenderer.h"
 
 // Renderer owns every draw call and all GPU-side helper state
 // (grid VAO, wind VAO, point VAO, mesh shader, billboard renderer).
@@ -53,12 +55,22 @@ public:
         const glm::mat4& proj, const glm::mat4& view,
         const glm::vec3& camRight, const glm::vec3& camUp);
 
+    // Draw the 3D fluid volume
+    void drawVolume(const glm::mat4& view, const glm::mat4& proj,
+        const glm::vec3& cameraPos, const glm::vec3& volumePos, float volumeScale);
+
     // Expose mesh loader so UI can call scan() / get availableMeshes
     MeshLoader& meshLoader() { return meshLoader_; }
+
+    void setVolumeRenderer(std::unique_ptr<VolumeRenderer> vr) {
+        volumeRenderer = std::move(vr);
+    }
+    VolumeRenderer* getVolumeRenderer() { return volumeRenderer.get(); }
 
 private:
     BillboardRenderer billboards_;
     MeshLoader        meshLoader_;
+    std::unique_ptr<VolumeRenderer> volumeRenderer;
 
     // Grid
     GLuint gridVAO_ = 0;

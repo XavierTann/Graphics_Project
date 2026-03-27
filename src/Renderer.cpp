@@ -322,3 +322,12 @@ void Renderer::drawSmoke(const std::vector<InstanceAttrib>& data,
     billboards_.drawInstanced((int)data.size());
     glDepthMask(GL_TRUE);
 }
+
+void Renderer::drawVolume(const glm::mat4& view, const glm::mat4& proj,
+    const glm::vec3& cameraPos, const glm::vec3& volumePos, float volumeScale)
+{
+    if (volumeRenderer) {
+        volumeRenderer->updateTextures();
+        volumeRenderer->render(view, proj, cameraPos, volumePos, volumeScale);
+    }
+}

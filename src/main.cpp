@@ -125,7 +125,12 @@ int main()
     scene.availableMeshNames = &renderer.meshLoader().availableMeshes;
     scene.init();
 
-	//camera initialisation
+    // Volume Renderer
+    auto vr = std::make_unique<VolumeRenderer>(scene.fluidSolver.get());
+    vr->init();
+    renderer.setVolumeRenderer(std::move(vr));
+
+    //camera initialisation
     camera.setAspect((float)winWidth / (float)winHeight);
     camera.update();
 
@@ -226,7 +231,13 @@ static void renderFrame(float dt, float now)
 	// Draw smoke, flames, and scene objects (objects drawn last to appear on top of particles)
     renderer.drawMeshes(view, proj, scene.objects);
     renderer.drawObjectBillboards(scene.objectInstData, smokeShader, proj, view, right, up);
-    renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up);
+
+    if (scene.enableFluidSimulation) {
+        renderer.drawVolume(view, proj, camera.getPosition(), scene.fluidVolumePos, scene.fluidVolumeScale);
+    } else {
+        renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up);
+    }
+
     if (scene.smokeEnabled)
         renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up);
 }

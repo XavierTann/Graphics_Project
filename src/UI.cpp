@@ -139,6 +139,28 @@ void UI::drawControlsPanel(const ImGuiIO& io)
         ImGui::SliderFloat("Turbulence Freq", &scene_->globals.turbFreq, 0.1f, 5.0f);
     }
 
+    if (ImGui::CollapsingHeader("3D Fluid Simulation", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Enable 3D Fluid", &scene_->enableFluidSimulation);
+        if (scene_->enableFluidSimulation && scene_->fluidSolver) {
+            ImGui::SliderFloat("Volume Scale", &scene_->fluidVolumeScale, 1.0f, 20.0f);
+            ImGui::DragFloat3("Volume Pos", (float*)&scene_->fluidVolumePos, 0.1f);
+            
+            static bool useMacCormack = false;
+            if (ImGui::Checkbox("Use MacCormack Advection", &useMacCormack)) {
+                scene_->fluidSolver->setMacCormack(useMacCormack);
+            }
+            
+            static float dissipation = 0.99f;
+            if (ImGui::SliderFloat("Density Dissipation", &dissipation, 0.90f, 1.0f)) {
+                scene_->fluidSolver->setDissipation(dissipation);
+            }
+            
+            static float fluidCooling = 0.99f;
+            if (ImGui::SliderFloat("Temperature Cooling", &fluidCooling, 0.90f, 1.0f)) {
+                scene_->fluidSolver->setCooling(fluidCooling);
+            }
+        }
+    }
 
     if (ImGui::CollapsingHeader("Emitter Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::SliderFloat("Radius", &scene_->emitter.radius, 0.01f, 1.0f);

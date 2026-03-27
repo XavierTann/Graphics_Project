@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <glm/glm.hpp>
+#include <functional>
 
 struct Particle {
     glm::vec3 pos;
@@ -49,6 +50,8 @@ public:
     void setSmokeDensity(float density);
     void setTornado(bool enabled, const glm::vec3& origin, float strength, float radius, float inflow, float updraft);
     void setDisturbers(const std::vector<Disturber>& d);
+    void setVelocityField(std::function<glm::vec3(const glm::vec3&)> field) { velocityField = field; }
+    
     void spawn(int count);
     void update(float dt, float time);
     void buildInstanceData(std::vector<InstanceAttrib>& out, const glm::mat4& viewProj) const;
@@ -69,6 +72,8 @@ private:
     float tornadoInflow = 0.0f;
     float tornadoUpdraft = 0.0f;
     std::vector<Disturber> disturbers;
+    std::function<glm::vec3(const glm::vec3&)> velocityField;
+
     float randf(float a, float b, float s) const;
     float noise(float x, float y, float z) const;
     glm::vec3 computeCurl(const glm::vec3& p) const;

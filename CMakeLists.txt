@@ -15,6 +15,8 @@ set(SOURCES
     src/UI.cpp
     src/MeshLoader.cpp
     src/Particles.cpp
+    src/FluidSolver3D.cpp
+    src/VolumeRenderer.cpp
     src/glad.c
     includes/imgui/imgui.cpp
     includes/imgui/imgui_demo.cpp
@@ -34,6 +36,11 @@ target_include_directories(FireSimulator PRIVATE
 
 find_package(OpenGL REQUIRED)
 target_link_libraries(FireSimulator PRIVATE OpenGL::GL)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(FireSimulator PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 find_package(glfw3 CONFIG QUIET)
 if(TARGET glfw)

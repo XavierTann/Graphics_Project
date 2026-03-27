@@ -104,18 +104,85 @@ void ParticleSystem::update(float dt, float time) {
         float t = 1.0f - (p.lifetime / p.maxLife); 
         
         if (smokeMode) {
-            glm::vec3 externalForces = params.wind * 0.6f;
-            externalForces.y += params.buoyancy * 0.15f;
+            glm::vec3 externalForces(0.0f);
+            
+            if (velocityField) {
+                // If we have a fluid solver velocity field, let it drive the particles
+                glm::vec3 fieldVel = velocityField(p.pos);
+                // The field velocity is the velocity of the fluid at that point.
+                // We gently blend the particle's velocity towards the field velocity.
+                p.vel = glm::mix(p.vel, fieldVel * 5.0f, 0.1f);
+            } else {
+                externalForces = params.wind * 0.6f;
+                externalForces.y += params.buoyancy * 0.15f;
 
+                glm::vec3 curlPos = p.pos * params.turbFreq;
+                curlPos.y += time * 0.2f;
+                glm::vec3 curl = computeCurl(curlPos);
+                externalForces += curl * (params.turbAmp * 0.6f);
+
+                if (tornadoEnabled) {
+                    glm::vec3 rel = p.pos - tornadoOrigin;
+                    glm::vec2 r2(rel.x, rel.z);
+                    float r = std::sqrt(r2.x * r2.x + r2.y * r2.y);
+                    float falloff = std::exp(-r / tornadoRadius);
+                    glm::vec3 tangential(0.0f);
+                    if (r > 1e-4f) {
+                        tangential = glm::normalize(glm::vec3(-rel.z, 0.0f, rel.x));
+                    }
+                    glm::vec3 inward(0.0f);
+                    if (r > 1e-4f) {
+                        inward = -glm::normalize(glm::vec3(rel.x, 0.0f, rel.z));
+                    }
+                    externalForces += tangential * tornadoStrength * falloff;
+                    externalForces += inward * tornadoInflow * falloff;
+                    externalForces += glm::vec3(0.0f, tornadoUpdraft * falloff, 0.0f);
+                }
+
+                for (const auto& dist : disturbers) {
+                    glm::vec3 rel = p.pos - dist.pos;
+                    float r = glm::length(rel);
+                    if (r <= dist.radius && dist.radius > 1e-4f) {
+                        float falloff = 1.0f - (r / dist.radius);
+                        glm::vec3 horiz(rel.x, 0.0f, rel.z);
+                        float hr = glm::length(horiz);
+                        if (hr > 1e-4f) {
+                            glm::vec3 push = glm::normalize(horiz);
+                            glm::vec3 swirl = glm::normalize(glm::vec3(-horiz.z, 0.0f, horiz.x));
+                            externalForces += (swirl + push * 0.35f) * dist.strength * falloff;
+                        }
+                    }
+                }
+            }
+
+            p.vel += externalForces * dt;
+            p.vel *= 0.985f;
+            p.pos += p.vel * dt;
+
+            p.size = emitter.baseSize * (0.7f + t * 2.5f);
+            float a = (1.0f - t);
+            p.color = glm::vec4(0.35f, 0.35f, 0.35f, a * 0.35f * smokeDensity);
+            continue;
+        }
+
+        glm::vec3 externalForces(0.0f);
+        
+        if (velocityField) {
+            glm::vec3 fieldVel = velocityField(p.pos);
+            p.vel = glm::mix(p.vel, fieldVel * 5.0f, 0.1f);
+        } else {
+            externalForces = params.wind; 
+            externalForces.y += params.buoyancy * 0.5f; 
+           
             glm::vec3 curlPos = p.pos * params.turbFreq;
-            curlPos.y += time * 0.2f;
+            curlPos.y -= time * params.turbFreq; 
+            
             glm::vec3 curl = computeCurl(curlPos);
-            externalForces += curl * (params.turbAmp * 0.6f);
+            externalForces += curl * params.turbAmp;
 
             if (tornadoEnabled) {
                 glm::vec3 rel = p.pos - tornadoOrigin;
-                glm::vec2 r2(rel.x, rel.z);
-                float r = std::sqrt(r2.x * r2.x + r2.y * r2.y);
+                float r = std::sqrt(rel.x * rel.x + rel.z * rel.z);
                 float falloff = std::exp(-r / tornadoRadius);
                 glm::vec3 tangential(0.0f);
                 if (r > 1e-4f) {
@@ -142,56 +209,6 @@ void ParticleSystem::update(float dt, float time) {
                         glm::vec3 swirl = glm::normalize(glm::vec3(-horiz.z, 0.0f, horiz.x));
                         externalForces += (swirl + push * 0.35f) * dist.strength * falloff;
                     }
-                }
-            }
-
-            p.vel += externalForces * dt;
-            p.vel *= 0.985f;
-            p.pos += p.vel * dt;
-
-            p.size = emitter.baseSize * (0.7f + t * 2.5f);
-            float a = (1.0f - t);
-            p.color = glm::vec4(0.35f, 0.35f, 0.35f, a * 0.35f * smokeDensity);
-            continue;
-        }
-
-        glm::vec3 externalForces = params.wind; 
-        externalForces.y += params.buoyancy * 0.5f; 
-       
-        glm::vec3 curlPos = p.pos * params.turbFreq;
-        curlPos.y -= time * params.turbFreq; 
-        
-        glm::vec3 curl = computeCurl(curlPos);
-        externalForces += curl * params.turbAmp;
-
-        if (tornadoEnabled) {
-            glm::vec3 rel = p.pos - tornadoOrigin;
-            float r = std::sqrt(rel.x * rel.x + rel.z * rel.z);
-            float falloff = std::exp(-r / tornadoRadius);
-            glm::vec3 tangential(0.0f);
-            if (r > 1e-4f) {
-                tangential = glm::normalize(glm::vec3(-rel.z, 0.0f, rel.x));
-            }
-            glm::vec3 inward(0.0f);
-            if (r > 1e-4f) {
-                inward = -glm::normalize(glm::vec3(rel.x, 0.0f, rel.z));
-            }
-            externalForces += tangential * tornadoStrength * falloff;
-            externalForces += inward * tornadoInflow * falloff;
-            externalForces += glm::vec3(0.0f, tornadoUpdraft * falloff, 0.0f);
-        }
-
-        for (const auto& dist : disturbers) {
-            glm::vec3 rel = p.pos - dist.pos;
-            float r = glm::length(rel);
-            if (r <= dist.radius && dist.radius > 1e-4f) {
-                float falloff = 1.0f - (r / dist.radius);
-                glm::vec3 horiz(rel.x, 0.0f, rel.z);
-                float hr = glm::length(horiz);
-                if (hr > 1e-4f) {
-                    glm::vec3 push = glm::normalize(horiz);
-                    glm::vec3 swirl = glm::normalize(glm::vec3(-horiz.z, 0.0f, horiz.x));
-                    externalForces += (swirl + push * 0.35f) * dist.strength * falloff;
                 }
             }
         }

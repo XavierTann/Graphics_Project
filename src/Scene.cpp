@@ -7,6 +7,12 @@
 // Init
 // ---------------------------------------------------------------------------
 
+Scene::Scene() {
+    fluidSolver = std::make_unique<FluidSolver3D>(64, 0.0f, 0.0f, 0.016f);
+}
+
+Scene::~Scene() = default;
+
 void Scene::init()
 {
     emitter.origin = glm::vec3(0.0f);
@@ -196,6 +202,74 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     if (smokeEnabled) {
         smokeSys.setDisturbers(disturbers);
         smokeSys.setSmokeDensity(0.25f + 1.25f * intens + 0.12f * (float)burningCount);
+    }
+
+    // --- Update Fluid Simulation ---
+    if (enableFluidSimulation && fluidSolver) {
+        fluidSolver->setWind(fg.wind);
+        fluidSolver->setBuoyancy(0.05f, fg.buoyancy * 5.0f); // Scale up buoyancy for fluid solver
+        
+        // Map world emitter position to grid
+        glm::vec3 relPos = (emitter.origin - fluidVolumePos) / fluidVolumeScale + 0.5f;
+        
+        // Adjust the Y mapping to ensure it is not exactly on the boundary
+        if (relPos.y < 0.05f) relPos.y = 0.05f;
+
+        if (relPos.x >= 0.0f && relPos.x <= 1.0f &&
+            relPos.y >= 0.0f && relPos.y <= 1.0f &&
+            relPos.z >= 0.0f && relPos.z <= 1.0f) {
+            
+            int gx = (int)(relPos.x * fluidSolver->getSize());
+            int gy = (int)(relPos.y * fluidSolver->getSize());
+            int gz = (int)(relPos.z * fluidSolver->getSize());
+            
+            if (fuelEnabled && fuel > 0.0f) {
+                // Add density and temp at emitter
+                float amount = 50.0f * dt * intens; // Increased injection amount
+                fluidSolver->addDensity(gx, gy, gz, amount * (smokeEnabled ? 1.0f : 0.0f));
+                fluidSolver->addTemperature(gx, gy, gz, amount * 2.0f); // Higher temperature
+            }
+        }
+
+        // Add from burning objects
+        for (const auto& obj : objects) {
+            if (obj.burning && obj.ash < 1.0f) {
+                glm::vec3 objRelPos = (obj.pos - fluidVolumePos) / fluidVolumeScale + 0.5f;
+                if (objRelPos.x >= 0.0f && objRelPos.x <= 1.0f &&
+                    objRelPos.y >= 0.0f && objRelPos.y <= 1.0f &&
+                    objRelPos.z >= 0.0f && objRelPos.z <= 1.0f) {
+                    
+                    int gx = (int)(objRelPos.x * fluidSolver->getSize());
+                    int gy = (int)(objRelPos.y * fluidSolver->getSize());
+                    int gz = (int)(objRelPos.z * fluidSolver->getSize());
+                    
+                    float amount = 50.0f * dt;
+                    fluidSolver->addDensity(gx, gy, gz, amount * (smokeEnabled ? 1.0f : 0.0f));
+                    fluidSolver->addTemperature(gx, gy, gz, amount * 5.0f);
+                }
+            }
+        }
+
+        fluidSolver->step();
+
+        // Create a velocity field sampler for particles
+        auto velField = [this](const glm::vec3& wpos) -> glm::vec3 {
+            glm::vec3 rel = (wpos - fluidVolumePos) / fluidVolumeScale + 0.5f;
+            if (rel.x < 0.0f || rel.x > 1.0f || rel.y < 0.0f || rel.y > 1.0f || rel.z < 0.0f || rel.z > 1.0f) {
+                return glm::vec3(0.0f);
+            }
+            int size = fluidSolver->getSize();
+            int x = std::clamp((int)(rel.x * size), 0, size - 1);
+            int y = std::clamp((int)(rel.y * size), 0, size - 1);
+            int z = std::clamp((int)(rel.z * size), 0, size - 1);
+            int idx = fluidSolver->IX(x, y, z);
+            return glm::vec3(fluidSolver->getVx()[idx], fluidSolver->getVy()[idx], fluidSolver->getVz()[idx]) * (float)size;
+        };
+        flames.setVelocityField(velField);
+        smokeSys.setVelocityField(velField);
+    } else {
+        flames.setVelocityField(nullptr);
+        smokeSys.setVelocityField(nullptr);
     }
 
     // --- Spawn main flame particles ---
