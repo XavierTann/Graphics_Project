@@ -53,6 +53,12 @@ public:
         const glm::mat4& proj, const glm::mat4& view,
         const glm::vec3& camRight, const glm::vec3& camUp);
 
+    // Draw the 2D fluid simulation as a billboard
+    void drawFluid(GLuint densityTexture, GLuint temperatureTexture,
+        const glm::mat4& proj, const glm::mat4& view,
+        const glm::vec3& camRight, const glm::vec3& camUp,
+        const glm::vec3& origin);
+
     // Expose mesh loader so UI can call scan() / get availableMeshes
     MeshLoader& meshLoader() { return meshLoader_; }
 
@@ -72,6 +78,11 @@ private:
     // Origin point
     GLuint pointVAO_ = 0;
     GLuint pointVBO_ = 0;
+
+    // Fluid Quad
+    GLuint fluidVAO_ = 0;
+    GLuint fluidVBO_ = 0;
+    GLuint fluidShader_ = 0;
 
     // Lazily-compiled helper shaders (created once on first draw call)
     GLuint gridShader_ = 0;

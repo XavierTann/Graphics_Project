@@ -1,6 +1,7 @@
 #pragma once
 #include "Particles.h"
 #include "SceneObject.h"
+#include "FluidSystem.h"
 #include <vector>
 #include <glm/glm.hpp>
 
@@ -34,7 +35,7 @@ public:
     float addFuelAmount  = 5.0f;
 
     // ---- Smoke ----
-    bool smokeEnabled = true;
+    bool smokeEnabled = false;
 
     // ---- Scene objects ----
     std::vector<SceneObject> objects;
@@ -45,12 +46,11 @@ public:
     // UI reads this to populate the file browser without depending on Renderer.
     const std::vector<std::string>* availableMeshNames = nullptr;
 
-    // ---- Particle systems (public so Renderer can read instance data) ----
-    ParticleSystem flames;
+    // ---- Particle systems / Fluid ----
+    FluidSystem fluidFire;
     ParticleSystem smokeSys;
 
     // ---- Derived instance data (filled by update, read by Renderer) ----
-    std::vector<InstanceAttrib> flameInstData;
     std::vector<InstanceAttrib> smokeInstData;
     std::vector<InstanceAttrib> objectInstData;
 
@@ -65,7 +65,7 @@ public:
     void reset();
 
     // ---- Fuel helpers ----
-    void addFuel() { fuel = std::min(fuelMax, fuel + addFuelAmount); }
+    void addFuel() { float x = fuel + addFuelAmount; fuel = (x < fuelMax ? x : fuelMax); }
 
     // Current intensity [0,1] derived from fuel
     float intensity() const;

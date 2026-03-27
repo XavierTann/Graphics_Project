@@ -23,15 +23,13 @@ void Scene::init()
     globals.turbAmp = 0.4f;
     globals.turbFreq = 1.2f;
 
-    flames.configure(emitter, globals);
-    flames.setSmoke(false);
-    flames.spawn(500);
+    fluidFire.init(256, 256); // 256x256 grid for fluid
 
     EmitterSettings se = emitter; se.baseSize = 0.12f;
     GlobalParams    sg = globals; sg.buoyancy = 0.6f; sg.cooling = 0.1f;
     smokeSys.configure(se, sg);
     smokeSys.setSmoke(true);
-    smokeEnabled = true;
+    smokeEnabled = false;
     smokeWasEnabled_ = true;
 }
 
@@ -148,20 +146,14 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
             fuel = fuelMax;
         }
         else if (fuel > 0.0f) {
-            fuel = std::max(0.0f, fuel - dt * fuelBurnRate);
+            float v = fuel - dt * fuelBurnRate;
+            fuel = (v < 0.0f ? 0.0f : v);
         }
     }
 
     float intens = intensity();
     EmitterSettings fe = makeFueledEmitter(intens);
     GlobalParams    fg = makeFueledGlobals(intens);
-
-    // --- Configure flame particle system ---
-    flames.configure(fe, fg);
-    flames.setSmoke(false);
-    flames.setTornado(enableWind && tornadoMode,
-        emitter.origin, tornadoStrength,
-        tornadoRadius, tornadoInflow, tornadoUpdraft);
 
     // --- Update scene objects, collect disturbers ---
     std::vector<Disturber> disturbers;
@@ -173,13 +165,25 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
         int spawnCount = obj.update(dt, intens,
             emitter.origin, emitter.radius,
             objects, i);
-        if (obj.burning) ++burningCount;
+        if (obj.burning) {
+            ++burningCount;
+            
+            // Map object 3D position to 2D fluid grid
+            // The grid is centered at emitter.origin. We map XZ plane.
+            float gridScale = 50.0f; // Scale from world units to grid pixels
+            glm::vec2 gridPos = glm::vec2(
+                (obj.pos.x - emitter.origin.x) * gridScale + fluidFire.getWidth() / 2.0f,
+                (obj.pos.z - emitter.origin.z) * gridScale + fluidFire.getHeight() / 2.0f
+            );
+            
+            fluidFire.injectDensity(gridPos, 20.0f, 8.0f * dt, 12.0f * dt);
+            fluidFire.injectVelocity(gridPos, 20.0f, glm::vec2(0.0f, 35.0f * dt));
+        }
 
-        // Spawn fire/smoke particles from burning objects
-        for (int k = 0; k < spawnCount; ++k) {
-            flames.spawnAt(obj.pos,
-                std::max(0.05f, fe.initialSpeedMax));
-            if (smokeEnabled) smokeSys.spawnAt(obj.pos, 0.25f);
+        if (spawnCount > 0 && smokeEnabled) {
+            for (int k = 0; k < spawnCount; ++k) {
+                smokeSys.spawnAt(obj.pos, 0.25f);
+            }
         }
 
         // Register as disturber if not fully ashed
@@ -192,42 +196,30 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
         }
     }
 
-    flames.setDisturbers(disturbers);
     if (smokeEnabled) {
         smokeSys.setDisturbers(disturbers);
         smokeSys.setSmokeDensity(0.25f + 1.25f * intens + 0.12f * (float)burningCount);
     }
 
     // --- Spawn main flame particles ---
-    static float flameSpawnAcc = 0.0f;
-    const float  spawnRateBase = 250.0f;
-    const int    maxParticlesBase = 1000;
-
-    float spawnRate = spawnRateBase * (0.15f + 0.85f * intens);
-    int   maxParticles = (int)(maxParticlesBase * (0.2f + 0.8f * intens));
-    if (fuelEnabled && intens <= 0.0f) { spawnRate = 0.0f; maxParticles = 0; }
-
-    flameSpawnAcc += dt * spawnRate;
-    int newFlames = (int)flameSpawnAcc;
-    if (newFlames > 0) {
-        flameSpawnAcc -= (float)newFlames;
-        int canSpawn = std::max(0, maxParticles - flames.count());
-        newFlames = std::min(newFlames, canSpawn);
-        if (newFlames > 0) flames.spawn(newFlames);
+    if (intens > 0.0f) {
+        glm::vec2 center(fluidFire.getWidth() / 2.0f, fluidFire.getHeight() / 2.0f);
+        float injectionRadius = 25.0f * intens;
+        fluidFire.injectDensity(center, injectionRadius, 10.0f * dt, 16.0f * dt);
+        fluidFire.injectVelocity(center, injectionRadius, glm::vec2(0.0f, 40.0f * dt));
     }
 
-    // --- Update flames & build instance data ---
-    flames.update(dt, time);
-    flames.buildInstanceData(flameInstData, viewProj);
+    fluidFire.update(dt, fg.buoyancy * 60.0f, 0.05f, 0.995f, 0.995f);
 
     // --- Smoke from cooling flames ---
-    if (smokeEnabled) {
-        std::vector<glm::vec3> emitPositions;
-        flames.buildSmokeEmitPositions(emitPositions);
-        int smokePerEmit = fuelEnabled ? std::max(0, (int)(intens * 3.0f + 0.5f)) : 1;
-        for (const auto& ep : emitPositions)
-            for (int i = 0; i < smokePerEmit; ++i)
-                smokeSys.spawnAt(ep, 0.3f);
+    if (smokeEnabled && intens > 0.0f) {
+        int base = (int)(intens * 3.0f + 0.5f);
+        int smokePerEmit = fuelEnabled ? (base > 0 ? base : 0) : 1;
+        for (int i = 0; i < smokePerEmit; ++i) {
+            // Add some jitter to the origin
+            glm::vec3 jitter((rand() % 100 - 50) / 100.0f * 0.2f, 0.5f, (rand() % 100 - 50) / 100.0f * 0.2f);
+            smokeSys.spawnAt(emitter.origin + jitter, 0.3f);
+        }
     }
 
     // --- Configure smoke system ---
@@ -276,10 +268,10 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
 
 void Scene::reset()
 {
-    flames.reset();
     smokeSys.reset();
-    flames.setSmoke(false);
     smokeSys.setSmoke(smokeEnabled);
     fuel = fuelMax;
-    flames.spawn(500);
+    
+    // Clear fluid system (re-init)
+    fluidFire.init(fluidFire.getWidth(), fluidFire.getHeight());
 }

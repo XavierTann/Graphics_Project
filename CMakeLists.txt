@@ -8,6 +8,7 @@ set(SOURCES
     src/main.cpp
     src/Config.cpp
     src/BillboardRenderer.cpp
+    src/FluidSystem.cpp
     src/Camera.cpp
     src/Scene.cpp
     src/SceneObject.cpp

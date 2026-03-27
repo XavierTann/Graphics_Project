@@ -83,7 +83,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #else
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #endif
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -223,12 +223,11 @@ static void renderFrame(float dt, float now)
     }
 
 
-	// Draw smoke, flames, and scene objects (objects drawn last to appear on top of particles)
+	// Draw smoke, fluid fire, and scene objects
     renderer.drawMeshes(view, proj, scene.objects);
     renderer.drawObjectBillboards(scene.objectInstData, smokeShader, proj, view, right, up);
-    renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up);
-    if (scene.smokeEnabled)
-        renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up);
+    renderer.drawFluid(scene.fluidFire.getDensityTexture(), scene.fluidFire.getTemperatureTexture(), proj, view, right, up, scene.emitter.origin);
+    renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up);
 }
 
 /***********************************************************************/

@@ -56,6 +56,25 @@ void Renderer::init()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
+
+    // ---- Fluid Quad ----
+    float quadVertices[] = {
+        // pos        // tex
+        -0.5f, -0.5f, 0.0f, 0.0f,
+         0.5f, -0.5f, 1.0f, 0.0f,
+        -0.5f,  0.5f, 0.0f, 1.0f,
+         0.5f,  0.5f, 1.0f, 1.0f,
+    };
+    glGenVertexArrays(1, &fluidVAO_);
+    glGenBuffers(1, &fluidVBO_);
+    glBindVertexArray(fluidVAO_);
+    glBindBuffer(GL_ARRAY_BUFFER, fluidVBO_);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glBindVertexArray(0);
 }
 
 void Renderer::shutdown()
@@ -67,10 +86,13 @@ void Renderer::shutdown()
     if (windVBO_) { glDeleteBuffers(1, &windVBO_);        windVBO_ = 0; }
     if (pointVAO_) { glDeleteVertexArrays(1, &pointVAO_); pointVAO_ = 0; }
     if (pointVBO_) { glDeleteBuffers(1, &pointVBO_);       pointVBO_ = 0; }
+    if (fluidVAO_) { glDeleteVertexArrays(1, &fluidVAO_); fluidVAO_ = 0; }
+    if (fluidVBO_) { glDeleteBuffers(1, &fluidVBO_);       fluidVBO_ = 0; }
     if (gridShader_) { glDeleteProgram(gridShader_);  gridShader_ = 0; }
     if (lineShader_) { glDeleteProgram(lineShader_);  lineShader_ = 0; }
     if (pointShader_) { glDeleteProgram(pointShader_); pointShader_ = 0; }
     if (meshShader_) { glDeleteProgram(meshShader_);  meshShader_ = 0; }
+    if (fluidShader_) { glDeleteProgram(fluidShader_); fluidShader_ = 0; }
 }
 
 // ---------------------------------------------------------------------------
@@ -321,4 +343,89 @@ void Renderer::drawSmoke(const std::vector<InstanceAttrib>& data,
     glDepthMask(GL_FALSE);
     billboards_.drawInstanced((int)data.size());
     glDepthMask(GL_TRUE);
+}
+
+void Renderer::drawFluid(GLuint densityTexture, GLuint temperatureTexture,
+    const glm::mat4& proj, const glm::mat4& view,
+    const glm::vec3& camRight, const glm::vec3& camUp,
+    const glm::vec3& origin)
+{
+    if (!fluidShader_) {
+        const char* vs = R"(
+#version 330
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aTex;
+uniform mat4 projection;
+uniform mat4 view;
+uniform vec3 camRight;
+uniform vec3 camUp;
+uniform vec3 origin;
+uniform float scale;
+out vec2 TexCoord;
+void main() {
+    vec3 worldPos = origin + camRight * aPos.x * scale + camUp * aPos.y * scale;
+    gl_Position = projection * view * vec4(worldPos, 1.0);
+    TexCoord = aTex;
+}
+)";
+        const char* fs = R"(
+#version 330
+in vec2 TexCoord;
+out vec4 FragColor;
+uniform sampler2D uDensity;
+uniform sampler2D uTemperature;
+
+vec4 fireColor(float temp, float density) {
+    float t = clamp(temp * 0.2, 0.0, 1.0);
+    vec3 c1 = vec3(0.0);
+    vec3 c2 = vec3(1.0, 0.1, 0.0);
+    vec3 c3 = vec3(1.0, 0.5, 0.0);
+    vec3 c4 = vec3(1.0, 0.9, 0.5);
+    vec3 color = mix(c1, c2, clamp(t * 3.0, 0.0, 1.0));
+    color = mix(color, c3, clamp((t - 0.33) * 3.0, 0.0, 1.0));
+    color = mix(color, c4, clamp((t - 0.66) * 3.0, 0.0, 1.0));
+    float alpha = 1.0 - exp(-density * 6.0);
+    return vec4(color * 1.6, alpha);
+}
+
+void main() {
+    float density = texture(uDensity, TexCoord).r;
+    float temp = texture(uTemperature, TexCoord).r;
+    
+    vec4 col = fireColor(temp, density);
+    if (col.a < 0.01) discard;
+    FragColor = col;
+}
+)";
+        fluidShader_ = compileSimpleShader(vs, fs);
+    }
+
+    glUseProgram(fluidShader_);
+    glUniformMatrix4fv(glGetUniformLocation(fluidShader_, "projection"), 1, GL_FALSE, &proj[0][0]);
+    glUniformMatrix4fv(glGetUniformLocation(fluidShader_, "view"), 1, GL_FALSE, &view[0][0]);
+    glUniform3fv(glGetUniformLocation(fluidShader_, "camRight"), 1, &camRight[0]);
+    glUniform3fv(glGetUniformLocation(fluidShader_, "camUp"), 1, &camUp[0]);
+    glUniform3fv(glGetUniformLocation(fluidShader_, "origin"), 1, &origin[0]);
+    glUniform1f(glGetUniformLocation(fluidShader_, "scale"), 16.0f);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, densityTexture);
+    glUniform1i(glGetUniformLocation(fluidShader_, "uDensity"), 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, temperatureTexture);
+    glUniform1i(glGetUniformLocation(fluidShader_, "uTemperature"), 1);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending for fire
+    glDepthMask(GL_FALSE);
+    GLboolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    if (depthWasEnabled) glDisable(GL_DEPTH_TEST);
+
+    glBindVertexArray(fluidVAO_);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
+    if (depthWasEnabled) glEnable(GL_DEPTH_TEST);
 }
