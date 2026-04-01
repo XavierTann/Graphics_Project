@@ -107,11 +107,9 @@ void ParticleSystem::update(float dt, float time) {
             glm::vec3 externalForces(0.0f);
             
             if (velocityField) {
-                // If we have a fluid solver velocity field, let it drive the particles
                 glm::vec3 fieldVel = velocityField(p.pos);
-                // The field velocity is the velocity of the fluid at that point.
-                // We gently blend the particle's velocity towards the field velocity.
-                p.vel = glm::mix(p.vel, fieldVel * 5.0f, 0.1f);
+                float blend = std::clamp(dt * 3.0f, 0.02f, 0.2f);
+                p.vel = glm::mix(p.vel, fieldVel, blend);
             } else {
                 externalForces = params.wind * 0.6f;
                 externalForces.y += params.buoyancy * 0.15f;
@@ -160,8 +158,16 @@ void ParticleSystem::update(float dt, float time) {
             p.pos += p.vel * dt;
 
             p.size = emitter.baseSize * (0.7f + t * 2.5f);
-            float a = (1.0f - t);
-            p.color = glm::vec4(0.35f, 0.35f, 0.35f, a * 0.35f * smokeDensity);
+            float fadeIn = std::clamp(t / 0.2f, 0.0f, 1.0f);
+            float fadeOut = 1.0f - std::clamp((t - 0.6f) / 0.4f, 0.0f, 1.0f);
+            float a = fadeIn * fadeOut;
+            float heat = heatField ? heatField(p.pos) : 0.0f;
+            heat = std::clamp(heat, 0.0f, 1.0f);
+            glm::vec3 baseSmoke(0.18f, 0.18f, 0.18f);
+            glm::vec3 warm(1.0f, 0.55f, 0.18f);
+            glm::vec3 rgb = glm::mix(baseSmoke, warm, heat);
+            rgb *= (1.0f + 0.65f * heat);
+            p.color = glm::vec4(rgb, a * 0.32f * smokeDensity);
             continue;
         }
 
@@ -169,7 +175,8 @@ void ParticleSystem::update(float dt, float time) {
         
         if (velocityField) {
             glm::vec3 fieldVel = velocityField(p.pos);
-            p.vel = glm::mix(p.vel, fieldVel * 5.0f, 0.1f);
+            float blend = std::clamp(dt * 2.0f, 0.02f, 0.12f);
+            p.vel = glm::mix(p.vel, fieldVel, blend);
         } else {
             externalForces = params.wind; 
             externalForces.y += params.buoyancy * 0.5f; 
@@ -288,15 +295,17 @@ void ParticleSystem::spawnAt(const glm::vec3& pos, float speed) {
     particles.push_back(pr);
 }
 
-void ParticleSystem::buildSmokeEmitPositions(std::vector<glm::vec3>& out) const {
+void ParticleSystem::buildSmokeEmitPositions(std::vector<glm::vec3>& out, float timeSeconds, float intensity) const {
     out.clear();
+    float tick = std::floor(timeSeconds * 12.0f);
+    float intens = std::clamp(intensity, 0.0f, 1.0f);
     for (const auto& p : particles) {
         float t = 1.0f - (p.lifetime / p.maxLife);
-        if (t > 0.8f && t < 0.9f) {
-             if (randf(0.0f, 1.0f, p.seed * t) > 0.8f) {
-                 out.push_back(p.pos);
-             }
-        }
+        if (t < 0.25f) continue;
+        float r = randf(0.0f, 1.0f, p.seed * 17.3f + tick);
+        float base = 0.88f - 0.35f * intens;
+        float thresh = std::clamp(base - 0.15f * t, 0.25f, 0.98f);
+        if (r > thresh) out.push_back(p.pos);
     }
 }
 

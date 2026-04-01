@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 Scene::Scene() {
-    fluidSolver = std::make_unique<FluidSolver3D>(64, 0.0f, 0.0f, 0.016f);
+    fluidSolver = std::make_unique<FluidSolver3D>(48, 0.0f, 0.0f, 1.0f / 30.0f);
 }
 
 Scene::~Scene() = default;
@@ -140,6 +140,7 @@ GlobalParams Scene::makeFueledGlobals(float intens) const
 
 void Scene::update(float dt, float time, const glm::mat4& viewProj)
 {
+    fluidUpdatedThisFrame = false;
     if (!smokeEnabled) {
         if (smokeWasEnabled_) smokeSys.reset();
         smokeInstData.clear();
@@ -207,69 +208,177 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     // --- Update Fluid Simulation ---
     if (enableFluidSimulation && fluidSolver) {
         fluidSolver->setWind(fg.wind);
-        fluidSolver->setBuoyancy(0.05f, fg.buoyancy * 5.0f); // Scale up buoyancy for fluid solver
-        
-        // Map world emitter position to grid
+        fluidSolver->setBuoyancy(0.05f, fg.buoyancy * 5.0f);
+        fluidSolver->setPressureIterations(fluidPressureIterations);
+        fluidSolver->setDiffusionIterations(fluidDiffusionIterations);
+
+        float simHz = std::clamp(fluidSimRateHz, 1.0f, 120.0f);
+        float simDt = 1.0f / simHz;
+        fluidAccum_ += dt;
+
         glm::vec3 relPos = (emitter.origin - fluidVolumePos) / fluidVolumeScale + 0.5f;
-        
-        // Adjust the Y mapping to ensure it is not exactly on the boundary
         if (relPos.y < 0.05f) relPos.y = 0.05f;
-
-        if (relPos.x >= 0.0f && relPos.x <= 1.0f &&
+        bool emitterInVolume =
+            relPos.x >= 0.0f && relPos.x <= 1.0f &&
             relPos.y >= 0.0f && relPos.y <= 1.0f &&
-            relPos.z >= 0.0f && relPos.z <= 1.0f) {
-            
-            int gx = (int)(relPos.x * fluidSolver->getSize());
-            int gy = (int)(relPos.y * fluidSolver->getSize());
-            int gz = (int)(relPos.z * fluidSolver->getSize());
-            
-            if (fuelEnabled && fuel > 0.0f) {
-                // Add density and temp at emitter
-                float amount = 50.0f * dt * intens; // Increased injection amount
-                fluidSolver->addDensity(gx, gy, gz, amount * (smokeEnabled ? 1.0f : 0.0f));
-                fluidSolver->addTemperature(gx, gy, gz, amount * 2.0f); // Higher temperature
-            }
+            relPos.z >= 0.0f && relPos.z <= 1.0f;
+
+        int emitterGx = 0, emitterGy = 0, emitterGz = 0;
+        if (emitterInVolume) {
+            emitterGx = (int)(relPos.x * fluidSolver->getSize());
+            emitterGy = (int)(relPos.y * fluidSolver->getSize());
+            emitterGz = (int)(relPos.z * fluidSolver->getSize());
         }
 
-        // Add from burning objects
+        struct SourceCell { int x, y, z; float densityMul; float tempMul; };
+        std::vector<SourceCell> sources;
+        sources.reserve(objects.size() + 1);
+
+        if (emitterInVolume && (!fuelEnabled || fuel > 0.0f)) {
+            SourceCell s;
+            int N = fluidSolver->getSize();
+            int lift = std::max(1, (int)(0.06f * (float)N));
+            s.x = emitterGx;
+            s.y = std::clamp(emitterGy + lift, 1, N - 2);
+            s.z = emitterGz;
+            s.densityMul = smokeEnabled ? 50.0f * intens : 0.0f;
+            s.tempMul = 100.0f * intens;
+            sources.push_back(s);
+        }
+
         for (const auto& obj : objects) {
-            if (obj.burning && obj.ash < 1.0f) {
-                glm::vec3 objRelPos = (obj.pos - fluidVolumePos) / fluidVolumeScale + 0.5f;
-                if (objRelPos.x >= 0.0f && objRelPos.x <= 1.0f &&
-                    objRelPos.y >= 0.0f && objRelPos.y <= 1.0f &&
-                    objRelPos.z >= 0.0f && objRelPos.z <= 1.0f) {
-                    
-                    int gx = (int)(objRelPos.x * fluidSolver->getSize());
-                    int gy = (int)(objRelPos.y * fluidSolver->getSize());
-                    int gz = (int)(objRelPos.z * fluidSolver->getSize());
-                    
-                    float amount = 50.0f * dt;
-                    fluidSolver->addDensity(gx, gy, gz, amount * (smokeEnabled ? 1.0f : 0.0f));
-                    fluidSolver->addTemperature(gx, gy, gz, amount * 5.0f);
-                }
+            if (!obj.burning || obj.ash >= 1.0f) continue;
+            glm::vec3 objRelPos = (obj.pos - fluidVolumePos) / fluidVolumeScale + 0.5f;
+            if (objRelPos.x < 0.0f || objRelPos.x > 1.0f ||
+                objRelPos.y < 0.0f || objRelPos.y > 1.0f ||
+                objRelPos.z < 0.0f || objRelPos.z > 1.0f) {
+                continue;
             }
+
+            SourceCell s;
+            int N = fluidSolver->getSize();
+            s.x = (int)(objRelPos.x * N);
+            s.y = std::clamp((int)(objRelPos.y * N) + 1, 1, N - 2);
+            s.z = (int)(objRelPos.z * N);
+            s.densityMul = smokeEnabled ? 50.0f : 0.0f;
+            s.tempMul = 250.0f;
+            sources.push_back(s);
         }
 
-        fluidSolver->step();
+        int substeps = 0;
+        while (fluidAccum_ >= simDt && substeps < 4) {
+            fluidSolver->setDt(simDt);
+            for (const auto& s : sources) {
+                float amount = simDt;
+                if (s.densityMul > 0.0f) fluidSolver->addDensity(s.x, s.y, s.z, s.densityMul * amount);
+                if (s.tempMul > 0.0f) fluidSolver->addTemperature(s.x, s.y, s.z, s.tempMul * amount);
+            }
+            fluidSolver->step();
+            fluidAccum_ -= simDt;
+            fluidUpdatedThisFrame = true;
+            substeps++;
+        }
 
-        // Create a velocity field sampler for particles
+        // Create a velocity field sampler for particles (trilinear sample, world-space-ish scaling)
         auto velField = [this](const glm::vec3& wpos) -> glm::vec3 {
             glm::vec3 rel = (wpos - fluidVolumePos) / fluidVolumeScale + 0.5f;
             if (rel.x < 0.0f || rel.x > 1.0f || rel.y < 0.0f || rel.y > 1.0f || rel.z < 0.0f || rel.z > 1.0f) {
                 return glm::vec3(0.0f);
             }
-            int size = fluidSolver->getSize();
-            int x = std::clamp((int)(rel.x * size), 0, size - 1);
-            int y = std::clamp((int)(rel.y * size), 0, size - 1);
-            int z = std::clamp((int)(rel.z * size), 0, size - 1);
-            int idx = fluidSolver->IX(x, y, z);
-            return glm::vec3(fluidSolver->getVx()[idx], fluidSolver->getVy()[idx], fluidSolver->getVz()[idx]) * (float)size;
+
+            int N = fluidSolver->getSize();
+            float gx = rel.x * (float)(N - 1);
+            float gy = rel.y * (float)(N - 1);
+            float gz = rel.z * (float)(N - 1);
+
+            int x0 = std::clamp((int)std::floor(gx), 0, N - 1);
+            int y0 = std::clamp((int)std::floor(gy), 0, N - 1);
+            int z0 = std::clamp((int)std::floor(gz), 0, N - 1);
+            int x1 = std::min(x0 + 1, N - 1);
+            int y1 = std::min(y0 + 1, N - 1);
+            int z1 = std::min(z0 + 1, N - 1);
+
+            float tx = gx - (float)x0;
+            float ty = gy - (float)y0;
+            float tz = gz - (float)z0;
+
+            auto sample = [&](const float* field) -> float {
+                auto lerp = [](float a, float b, float t) { return a + (b - a) * t; };
+                float c000 = field[fluidSolver->IX(x0, y0, z0)];
+                float c100 = field[fluidSolver->IX(x1, y0, z0)];
+                float c010 = field[fluidSolver->IX(x0, y1, z0)];
+                float c110 = field[fluidSolver->IX(x1, y1, z0)];
+                float c001 = field[fluidSolver->IX(x0, y0, z1)];
+                float c101 = field[fluidSolver->IX(x1, y0, z1)];
+                float c011 = field[fluidSolver->IX(x0, y1, z1)];
+                float c111 = field[fluidSolver->IX(x1, y1, z1)];
+
+                float c00 = lerp(c000, c100, tx);
+                float c10 = lerp(c010, c110, tx);
+                float c01 = lerp(c001, c101, tx);
+                float c11 = lerp(c011, c111, tx);
+                float c0 = lerp(c00, c10, ty);
+                float c1 = lerp(c01, c11, ty);
+                return lerp(c0, c1, tz);
+            };
+
+            glm::vec3 v(sample(fluidSolver->getVx()), sample(fluidSolver->getVy()), sample(fluidSolver->getVz()));
+            float maxV = 6.0f;
+            float len = glm::length(v);
+            if (len > maxV && len > 1e-4f) v *= (maxV / len);
+            return v * fluidVolumeScale;
         };
         flames.setVelocityField(velField);
         smokeSys.setVelocityField(velField);
+
+        auto heatField = [this](const glm::vec3& wpos) -> float {
+            glm::vec3 rel = (wpos - fluidVolumePos) / fluidVolumeScale + 0.5f;
+            if (rel.x < 0.0f || rel.x > 1.0f || rel.y < 0.0f || rel.y > 1.0f || rel.z < 0.0f || rel.z > 1.0f) {
+                return 0.0f;
+            }
+
+            int N = fluidSolver->getSize();
+            float gx = rel.x * (float)(N - 1);
+            float gy = rel.y * (float)(N - 1);
+            float gz = rel.z * (float)(N - 1);
+
+            int x0 = std::clamp((int)std::floor(gx), 0, N - 1);
+            int y0 = std::clamp((int)std::floor(gy), 0, N - 1);
+            int z0 = std::clamp((int)std::floor(gz), 0, N - 1);
+            int x1 = std::min(x0 + 1, N - 1);
+            int y1 = std::min(y0 + 1, N - 1);
+            int z1 = std::min(z0 + 1, N - 1);
+
+            float tx = gx - (float)x0;
+            float ty = gy - (float)y0;
+            float tz = gz - (float)z0;
+
+            auto lerp = [](float a, float b, float t) { return a + (b - a) * t; };
+            const float* T = fluidSolver->getTemperature();
+            float c000 = T[fluidSolver->IX(x0, y0, z0)];
+            float c100 = T[fluidSolver->IX(x1, y0, z0)];
+            float c010 = T[fluidSolver->IX(x0, y1, z0)];
+            float c110 = T[fluidSolver->IX(x1, y1, z0)];
+            float c001 = T[fluidSolver->IX(x0, y0, z1)];
+            float c101 = T[fluidSolver->IX(x1, y0, z1)];
+            float c011 = T[fluidSolver->IX(x0, y1, z1)];
+            float c111 = T[fluidSolver->IX(x1, y1, z1)];
+
+            float c00 = lerp(c000, c100, tx);
+            float c10 = lerp(c010, c110, tx);
+            float c01 = lerp(c001, c101, tx);
+            float c11 = lerp(c011, c111, tx);
+            float c0 = lerp(c00, c10, ty);
+            float c1 = lerp(c01, c11, ty);
+            float temp = lerp(c0, c1, tz);
+
+            return std::clamp(temp / 3.0f, 0.0f, 1.0f);
+        };
+        smokeSys.setHeatField(heatField);
     } else {
         flames.setVelocityField(nullptr);
         smokeSys.setVelocityField(nullptr);
+        smokeSys.setHeatField(nullptr);
     }
 
     // --- Spawn main flame particles ---
@@ -294,14 +403,17 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     flames.update(dt, time);
     flames.buildInstanceData(flameInstData, viewProj);
 
-    // --- Smoke from cooling flames ---
+    // --- Smoke from flames ---
     if (smokeEnabled) {
         std::vector<glm::vec3> emitPositions;
-        flames.buildSmokeEmitPositions(emitPositions);
-        int smokePerEmit = fuelEnabled ? std::max(0, (int)(intens * 3.0f + 0.5f)) : 1;
-        for (const auto& ep : emitPositions)
-            for (int i = 0; i < smokePerEmit; ++i)
-                smokeSys.spawnAt(ep, 0.3f);
+        flames.buildSmokeEmitPositions(emitPositions, time, intens);
+        float speed = 0.22f + 0.28f * intens;
+        float minY = emitter.origin.y + std::max(0.12f, emitter.radius * 1.25f);
+        float liftY = std::max(0.08f, emitter.radius * 0.75f) * (0.6f + 0.8f * intens);
+        for (auto ep : emitPositions) {
+            ep.y = std::max(ep.y + liftY, minY);
+            smokeSys.spawnAt(ep, speed);
+        }
     }
 
     // --- Configure smoke system ---
@@ -356,4 +468,7 @@ void Scene::reset()
     smokeSys.setSmoke(smokeEnabled);
     fuel = fuelMax;
     flames.spawn(500);
+    if (fluidSolver) fluidSolver->clear();
+    fluidAccum_ = 0.0f;
+    fluidUpdatedThisFrame = true;
 }

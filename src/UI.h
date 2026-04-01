@@ -16,6 +16,7 @@ public:
     bool wantSaveConfig = false;
     bool wantLoadConfig = false;
     bool wantRestart    = false;
+    bool wantRescanMeshes = false;
 
 private:
     Scene*  scene_  = nullptr;

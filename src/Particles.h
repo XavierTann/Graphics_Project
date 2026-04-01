@@ -51,12 +51,13 @@ public:
     void setTornado(bool enabled, const glm::vec3& origin, float strength, float radius, float inflow, float updraft);
     void setDisturbers(const std::vector<Disturber>& d);
     void setVelocityField(std::function<glm::vec3(const glm::vec3&)> field) { velocityField = field; }
+    void setHeatField(std::function<float(const glm::vec3&)> field) { heatField = field; }
     
     void spawn(int count);
     void update(float dt, float time);
     void buildInstanceData(std::vector<InstanceAttrib>& out, const glm::mat4& viewProj) const;
     void spawnAt(const glm::vec3& pos, float speed);
-    void buildSmokeEmitPositions(std::vector<glm::vec3>& out) const;
+    void buildSmokeEmitPositions(std::vector<glm::vec3>& out, float timeSeconds, float intensity) const;
     void reset();
     int count() const { return (int)particles.size(); }
 private:
@@ -73,6 +74,7 @@ private:
     float tornadoUpdraft = 0.0f;
     std::vector<Disturber> disturbers;
     std::function<glm::vec3(const glm::vec3&)> velocityField;
+    std::function<float(const glm::vec3&)> heatField;
 
     float randf(float a, float b, float s) const;
     float noise(float x, float y, float z) const;

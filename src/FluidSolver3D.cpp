@@ -16,6 +16,22 @@ FluidSolver3D::FluidSolver3D(int size, float diffusion, float viscosity, float d
     Vx0.resize(N, 0.0f);
     Vy0.resize(N, 0.0f);
     Vz0.resize(N, 0.0f);
+    linSolveTmp.resize(N, 0.0f);
+    macCormackFwd.resize(N, 0.0f);
+    macCormackBwd.resize(N, 0.0f);
+}
+
+void FluidSolver3D::clear() {
+    std::fill(density.begin(), density.end(), 0.0f);
+    std::fill(density0.begin(), density0.end(), 0.0f);
+    std::fill(temp.begin(), temp.end(), 0.0f);
+    std::fill(temp0.begin(), temp0.end(), 0.0f);
+    std::fill(Vx.begin(), Vx.end(), 0.0f);
+    std::fill(Vy.begin(), Vy.end(), 0.0f);
+    std::fill(Vz.begin(), Vz.end(), 0.0f);
+    std::fill(Vx0.begin(), Vx0.end(), 0.0f);
+    std::fill(Vy0.begin(), Vy0.end(), 0.0f);
+    std::fill(Vz0.begin(), Vz0.end(), 0.0f);
 }
 
 void FluidSolver3D::addDensity(int x, int y, int z, float amount) {
@@ -105,16 +121,14 @@ void FluidSolver3D::setBnd(int b, std::vector<float>& x) {
 void FluidSolver3D::linSolve(int b, std::vector<float>& x, const std::vector<float>& x0, float a, float c, int iter) {
     float cRecip = 1.0f / c;
     int N = size;
-    // We cannot easily parallelize standard Gauss-Seidel with OpenMP this way without race conditions,
-    // so we use a temporary buffer for Jacobi iteration which is safely parallelizable.
-    std::vector<float> xNext = x;
+    if ((int)linSolveTmp.size() != (int)x.size()) linSolveTmp.resize(x.size(), 0.0f);
 
     for (int k = 0; k < iter; k++) {
         #pragma omp parallel for
         for (int z = 1; z < N - 1; z++) {
             for (int j = 1; j < N - 1; j++) {
                 for (int i = 1; i < N - 1; i++) {
-                    xNext[IX(i, j, z)] =
+                    linSolveTmp[IX(i, j, z)] =
                         (x0[IX(i, j, z)]
                             + a * (x[IX(i+1, j, z)]
                                  + x[IX(i-1, j, z)]
@@ -126,17 +140,21 @@ void FluidSolver3D::linSolve(int b, std::vector<float>& x, const std::vector<flo
                 }
             }
         }
-        x = xNext;
+        x.swap(linSolveTmp);
         setBnd(b, x);
     }
 }
 
 void FluidSolver3D::diffuse(int b, std::vector<float>& x, const std::vector<float>& x0, float diff) {
     float a = dt * diff * (size - 2) * (size - 2) * (size - 2);
-    linSolve(b, x, x0, a, 1.0f + 6.0f * a, 20); // increased iterations
+    linSolve(b, x, x0, a, 1.0f + 6.0f * a, diffusionIterations);
 }
 
 void FluidSolver3D::advect(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, const std::vector<float>& w) {
+    advectInternal(b, d, d0, u, v, w, 1.0f);
+}
+
+void FluidSolver3D::advectInternal(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, const std::vector<float>& w, float dtSign) {
     int N = size;
     float dt0 = dt * N; // Note: using N instead of N-2 for simpler world space mapping
 
@@ -144,9 +162,9 @@ void FluidSolver3D::advect(int b, std::vector<float>& d, const std::vector<float
     for (int z = 1; z < N - 1; z++) {
         for (int j = 1; j < N - 1; j++) {
             for (int i = 1; i < N - 1; i++) {
-                float x = i - dt0 * u[IX(i, j, z)];
-                float y = j - dt0 * v[IX(i, j, z)];
-                float z_pos = z - dt0 * w[IX(i, j, z)];
+                float x = i - (dtSign * dt0) * u[IX(i, j, z)];
+                float y = j - (dtSign * dt0) * v[IX(i, j, z)];
+                float z_pos = z - (dtSign * dt0) * w[IX(i, j, z)];
 
                 if (x < 0.5f) x = 0.5f;
                 if (x > N - 1.5f) x = N - 1.5f;
@@ -182,21 +200,11 @@ void FluidSolver3D::advect(int b, std::vector<float>& d, const std::vector<float
 }
 
 void FluidSolver3D::advectMacCormack(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, const std::vector<float>& w) {
-    // 1. Forward Advection (Standard Semi-Lagrangian)
-    std::vector<float> d_fwd(size * size * size, 0.0f);
-    advect(b, d_fwd, d0, u, v, w);
+    if ((int)macCormackFwd.size() != (int)d0.size()) macCormackFwd.resize(d0.size(), 0.0f);
+    if ((int)macCormackBwd.size() != (int)d0.size()) macCormackBwd.resize(d0.size(), 0.0f);
 
-    // 2. Backward Advection
-    std::vector<float> u_neg(size * size * size, 0.0f);
-    std::vector<float> v_neg(size * size * size, 0.0f);
-    std::vector<float> w_neg(size * size * size, 0.0f);
-    for (size_t i = 0; i < u.size(); i++) {
-        u_neg[i] = -u[i];
-        v_neg[i] = -v[i];
-        w_neg[i] = -w[i];
-    }
-    std::vector<float> d_bwd(size * size * size, 0.0f);
-    advect(b, d_bwd, d_fwd, u_neg, v_neg, w_neg);
+    advectInternal(b, macCormackFwd, d0, u, v, w, 1.0f);
+    advectInternal(b, macCormackBwd, macCormackFwd, u, v, w, -1.0f);
 
     // 3. Error correction and Min-Max Limiting
     int N = size;
@@ -207,7 +215,7 @@ void FluidSolver3D::advectMacCormack(int b, std::vector<float>& d, const std::ve
         for (int j = 1; j < N - 1; j++) {
             for (int i = 1; i < N - 1; i++) {
                 // Corrected value
-                float corrected = d_fwd[IX(i, j, z)] + 0.5f * (d0[IX(i, j, z)] - d_bwd[IX(i, j, z)]);
+                float corrected = macCormackFwd[IX(i, j, z)] + 0.5f * (d0[IX(i, j, z)] - macCormackBwd[IX(i, j, z)]);
                 
                 // Limiting
                 float x = i - dt0 * u[IX(i, j, z)];
@@ -259,7 +267,7 @@ void FluidSolver3D::project(std::vector<float>& u, std::vector<float>& v, std::v
     setBnd(0, div);
     setBnd(0, p);
 
-    linSolve(0, p, div, 1, 6, 20); // increased iterations
+    linSolve(0, p, div, 1, 6, iter);
 
     #pragma omp parallel for
     for (int z = 1; z < N - 1; z++) {
@@ -299,6 +307,7 @@ void FluidSolver3D::applyBuoyancy() {
 
 void FluidSolver3D::applyWind() {
     int N = size;
+    #pragma omp parallel for
     for (int z = 1; z < N - 1; z++) {
         for (int j = 1; j < N - 1; j++) {
             for (int i = 1; i < N - 1; i++) {
@@ -312,16 +321,24 @@ void FluidSolver3D::applyWind() {
 }
 
 void FluidSolver3D::coolAndDissipate() {
-    for (size_t i = 0; i < temp.size(); i++) {
-        temp[i] *= cooling;
-        density[i] *= densityDissipation;
+    int Ncells = (int)temp.size();
+    int N = size;
+    #pragma omp parallel for
+    for (int i = 0; i < Ncells; i++) {
+        int y = (i / N) % N;
+        float h = (float)y / (float)std::max(1, N - 1);
+        float top = std::clamp((h - 0.72f) / 0.28f, 0.0f, 1.0f);
+        float topDamp = 1.0f - 0.22f * (top * top);
+
+        temp[(size_t)i] *= (cooling * topDamp);
+        density[(size_t)i] *= (densityDissipation * topDamp);
         
         // Prevent values from growing to infinity or dropping below 0
-        if (temp[i] < 0.0001f) temp[i] = 0.0f;
-        if (temp[i] > 10.0f) temp[i] = 10.0f;
+        if (temp[(size_t)i] < 0.0001f) temp[(size_t)i] = 0.0f;
+        if (temp[(size_t)i] > 10.0f) temp[(size_t)i] = 10.0f;
         
-        if (density[i] < 0.0001f) density[i] = 0.0f;
-        if (density[i] > 10.0f) density[i] = 10.0f;
+        if (density[(size_t)i] < 0.0001f) density[(size_t)i] = 0.0f;
+        if (density[(size_t)i] > 10.0f) density[(size_t)i] = 10.0f;
     }
 }
 
@@ -346,7 +363,7 @@ void FluidSolver3D::step() {
         std::copy(Vz0.begin(), Vz0.end(), Vz.begin());
     }
 
-    project(Vx, Vy, Vz, Vx0, Vy0, 20);
+    project(Vx, Vy, Vz, Vx0, Vy0, pressureIterations);
     // 3. Advect Velocity
     std::copy(Vx.begin(), Vx.end(), Vx0.begin());
     std::copy(Vy.begin(), Vy.end(), Vy0.begin());
@@ -362,7 +379,7 @@ void FluidSolver3D::step() {
         advect(3, Vz, Vz0, Vx0, Vy0, Vz0);
     }
 
-    project(Vx, Vy, Vz, Vx0, Vy0, 20);
+    project(Vx, Vy, Vz, Vx0, Vy0, pressureIterations);
 
     // 4. Diffuse and Advect Scalars (Temperature, Density)
     std::copy(temp.begin(), temp.end(), temp0.begin());

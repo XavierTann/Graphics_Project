@@ -8,6 +8,7 @@ public:
     ~FluidSolver3D() = default;
 
     void step();
+    void clear();
     void addDensity(int x, int y, int z, float amount);
     void addTemperature(int x, int y, int z, float amount);
     void addVelocity(int x, int y, int z, float amountX, float amountY, float amountZ);
@@ -25,6 +26,17 @@ public:
     void setMacCormack(bool use) { useMacCormack = use; }
     void setAmbientTemperature(float temp) { ambientTemp = temp; }
     void setWind(const glm::vec3& w) { wind = w; }
+    void setDt(float newDt) { dt = newDt; }
+    void setPressureIterations(int iters) {
+        pressureIterations = iters;
+        if (pressureIterations < 1) pressureIterations = 1;
+        if (pressureIterations > 200) pressureIterations = 200;
+    }
+    void setDiffusionIterations(int iters) {
+        diffusionIterations = iters;
+        if (diffusionIterations < 1) diffusionIterations = 1;
+        if (diffusionIterations > 200) diffusionIterations = 200;
+    }
 
     inline int IX(int x, int y, int z) const {
         x = glm::clamp(x, 0, size - 1);
@@ -38,6 +50,9 @@ private:
     float dt;
     float diff;
     float visc;
+
+    int pressureIterations = 10;
+    int diffusionIterations = 10;
 
     float buoyancyAlpha = 0.5f; // Density weight
     float buoyancyBeta = 1.5f;  // Temperature weight
@@ -61,10 +76,15 @@ private:
     std::vector<float> Vy0;
     std::vector<float> Vz0;
 
+    std::vector<float> linSolveTmp;
+    std::vector<float> macCormackFwd;
+    std::vector<float> macCormackBwd;
+
     void setBnd(int b, std::vector<float>& x);
     void linSolve(int b, std::vector<float>& x, const std::vector<float>& x0, float a, float c, int iter);
     void diffuse(int b, std::vector<float>& x, const std::vector<float>& x0, float diff);
     void advect(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, const std::vector<float>& w);
+    void advectInternal(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, const std::vector<float>& w, float dtSign);
     void advectMacCormack(int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, const std::vector<float>& w);
     void project(std::vector<float>& u, std::vector<float>& v, std::vector<float>& w, std::vector<float>& p, std::vector<float>& div, int iter);
     void applyBuoyancy();

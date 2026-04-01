@@ -63,6 +63,24 @@ public:
     bool enableFluidSimulation = true;
     float fluidVolumeScale = 5.0f;
     glm::vec3 fluidVolumePos = glm::vec3(0.0f, 2.5f, 0.0f);
+    float fluidSimRateHz = 30.0f;
+    int fluidPressureIterations = 10;
+    int fluidDiffusionIterations = 10;
+    bool fluidUpdatedThisFrame = false;
+
+    struct VolumeRenderSettings {
+        int maxSteps = 96;
+        float stepSizeScale = 1.25f;
+        float emptySpaceSkip = 4.0f;
+        float emptyThreshold = 0.01f;
+        float densityScale = 5.0f;
+        float temperatureScale = 2.0f;
+        float exposure = 1.25f;
+        float fireIntensity = 8.0f;
+        float noiseScale = 7.0f;
+        float noiseStrength = 0.35f;
+    };
+    VolumeRenderSettings volumeRender;
 
     // Call once after construction to apply default settings.
     void init();
@@ -88,4 +106,5 @@ private:
     EmitterSettings makeFueledEmitter(float intens) const;
     GlobalParams    makeFueledGlobals(float intens) const;
     bool smokeWasEnabled_ = true;
+    float fluidAccum_ = 0.0f;
 };

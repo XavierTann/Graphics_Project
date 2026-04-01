@@ -9,8 +9,14 @@
         "uniform vec3 camRight;\n" \
         "uniform vec3 camUp;\n"
 
+#ifdef __APPLE__
+#define GLSL_VERSION_LINE "#version 410 core\n"
+#else
+#define GLSL_VERSION_LINE "#version 430 core\n"
+#endif
+
 const char *particleVertexShaderSource =
-        "#version 330\n"
+        GLSL_VERSION_LINE
         BILLBOARD_UNIFORMS
         "layout (location = 0) in vec2 quadPos;\n"
         "layout (location = 1) in vec2 quadUV;\n"
@@ -28,7 +34,7 @@ const char *particleVertexShaderSource =
         "}\n";
 
 const char *particleFragmentShaderSource =
-        "#version 330\n"
+        GLSL_VERSION_LINE
         "in vec2 vUV;\n"
         "in vec4 vColor;\n"
         "out vec4 Fragment;\n"
@@ -42,7 +48,7 @@ const char *particleFragmentShaderSource =
 
 
 const char *smokeFragmentShaderSource =
-        "#version 330\n"
+        GLSL_VERSION_LINE
         "in vec2 vUV;\n"
         "in vec4 vColor;\n"
         "out vec4 Fragment;\n"

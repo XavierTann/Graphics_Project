@@ -57,7 +57,7 @@ public:
 
     // Draw the 3D fluid volume
     void drawVolume(const glm::mat4& view, const glm::mat4& proj,
-        const glm::vec3& cameraPos, const glm::vec3& volumePos, float volumeScale);
+        const glm::vec3& cameraPos, const glm::vec3& volumePos, float volumeScale, float timeSeconds, bool updateTextures);
 
     // Expose mesh loader so UI can call scan() / get availableMeshes
     MeshLoader& meshLoader() { return meshLoader_; }

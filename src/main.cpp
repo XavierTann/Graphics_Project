@@ -83,7 +83,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #else
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 #endif
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -112,7 +112,11 @@ int main()
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
+#ifdef __APPLE__
+    ImGui_ImplOpenGL3_Init("#version 410");
+#else
+    ImGui_ImplOpenGL3_Init("#version 430");
+#endif
 
 	//shader compilation
     flameShader.setUpShader(particleVertexShaderSource, particleFragmentShaderSource);
@@ -163,9 +167,7 @@ int main()
         if (ui.wantRestart)    scene.reset();
         if (ui.wantSaveConfig) saveConfig("config.txt", scene.emitter, scene.globals);
         if (ui.wantLoadConfig) loadConfig("config.txt", scene.emitter, scene.globals);
-
-        // Re-scan mesh folder
-        renderer.meshLoader().scan("data");
+        if (ui.wantRescanMeshes) renderer.meshLoader().scan("data");
 
 		// Update the scene and build instance data for rendering
         renderFrame(dt, now);
@@ -233,7 +235,20 @@ static void renderFrame(float dt, float now)
     renderer.drawObjectBillboards(scene.objectInstData, smokeShader, proj, view, right, up);
 
     if (scene.enableFluidSimulation) {
-        renderer.drawVolume(view, proj, camera.getPosition(), scene.fluidVolumePos, scene.fluidVolumeScale);
+        if (auto vr = renderer.getVolumeRenderer()) {
+            vr->setMaxSteps(scene.volumeRender.maxSteps);
+            float boxDiag = scene.fluidVolumeScale * std::sqrt(3.0f);
+            vr->setStepSize((boxDiag / (float)scene.volumeRender.maxSteps) * scene.volumeRender.stepSizeScale);
+            vr->setEmptySpaceSkip(scene.volumeRender.emptySpaceSkip);
+            vr->setEmptyThreshold(scene.volumeRender.emptyThreshold);
+            vr->setDensityScale(scene.volumeRender.densityScale);
+            vr->setTemperatureScale(scene.volumeRender.temperatureScale);
+            vr->setExposure(scene.volumeRender.exposure);
+            vr->setFireIntensity(scene.volumeRender.fireIntensity);
+            vr->setNoiseScale(scene.volumeRender.noiseScale);
+            vr->setNoiseStrength(scene.volumeRender.noiseStrength);
+        }
+        renderer.drawVolume(view, proj, camera.getPosition(), scene.fluidVolumePos, scene.fluidVolumeScale, now, scene.fluidUpdatedThisFrame);
     } else {
         renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up);
     }

@@ -18,6 +18,7 @@ void UI::draw(const ImGuiIO& io)
     wantSaveConfig = false;
     wantLoadConfig = false;
     wantRestart = false;
+    wantRescanMeshes = false;
 
     drawObjectsPanel();
     drawControlsPanel(io);
@@ -36,7 +37,9 @@ void UI::drawObjectsPanel()
     ImGui::SetNextWindowSize({ pw, ph }, ImGuiCond_Always);
 
     ImGui::Begin("Objects", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-    ImGui::Button("Refresh");
+    if (ImGui::Button("Refresh")) {
+        wantRescanMeshes = true;
+    }
 
     static const std::vector<std::string> empty;
     const auto& available = scene_->availableMeshNames
@@ -144,6 +147,13 @@ void UI::drawControlsPanel(const ImGuiIO& io)
         if (scene_->enableFluidSimulation && scene_->fluidSolver) {
             ImGui::SliderFloat("Volume Scale", &scene_->fluidVolumeScale, 1.0f, 20.0f);
             ImGui::DragFloat3("Volume Pos", (float*)&scene_->fluidVolumePos, 0.1f);
+            ImGui::SliderFloat("Sim Rate (Hz)", &scene_->fluidSimRateHz, 5.0f, 60.0f);
+            if (ImGui::SliderInt("Pressure Iters", &scene_->fluidPressureIterations, 4, 40)) {
+                scene_->fluidSolver->setPressureIterations(scene_->fluidPressureIterations);
+            }
+            if (ImGui::SliderInt("Diffuse Iters", &scene_->fluidDiffusionIterations, 0, 40)) {
+                scene_->fluidSolver->setDiffusionIterations(scene_->fluidDiffusionIterations);
+            }
             
             static bool useMacCormack = false;
             if (ImGui::Checkbox("Use MacCormack Advection", &useMacCormack)) {
@@ -159,6 +169,19 @@ void UI::drawControlsPanel(const ImGuiIO& io)
             if (ImGui::SliderFloat("Temperature Cooling", &fluidCooling, 0.90f, 1.0f)) {
                 scene_->fluidSolver->setCooling(fluidCooling);
             }
+
+            ImGui::Separator();
+            ImGui::Text("Volume Render Quality");
+            ImGui::SliderInt("Raymarch Steps", &scene_->volumeRender.maxSteps, 24, 256);
+            ImGui::SliderFloat("Ray Step Scale", &scene_->volumeRender.stepSizeScale, 0.5f, 3.0f);
+            ImGui::SliderFloat("Empty Skip", &scene_->volumeRender.emptySpaceSkip, 1.0f, 8.0f);
+            ImGui::SliderFloat("Empty Threshold", &scene_->volumeRender.emptyThreshold, 0.0f, 0.05f);
+            ImGui::SliderFloat("Vol Density", &scene_->volumeRender.densityScale, 0.0f, 20.0f);
+            ImGui::SliderFloat("Vol Temp", &scene_->volumeRender.temperatureScale, 0.0f, 10.0f);
+            ImGui::SliderFloat("Exposure", &scene_->volumeRender.exposure, 0.1f, 4.0f);
+            ImGui::SliderFloat("Fire Intensity", &scene_->volumeRender.fireIntensity, 0.0f, 25.0f);
+            ImGui::SliderFloat("Noise Scale", &scene_->volumeRender.noiseScale, 0.0f, 32.0f);
+            ImGui::SliderFloat("Noise Strength", &scene_->volumeRender.noiseStrength, 0.0f, 1.0f);
         }
     }
 

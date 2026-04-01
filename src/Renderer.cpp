@@ -324,10 +324,10 @@ void Renderer::drawSmoke(const std::vector<InstanceAttrib>& data,
 }
 
 void Renderer::drawVolume(const glm::mat4& view, const glm::mat4& proj,
-    const glm::vec3& cameraPos, const glm::vec3& volumePos, float volumeScale)
+    const glm::vec3& cameraPos, const glm::vec3& volumePos, float volumeScale, float timeSeconds, bool updateTextures)
 {
     if (volumeRenderer) {
-        volumeRenderer->updateTextures();
-        volumeRenderer->render(view, proj, cameraPos, volumePos, volumeScale);
+        if (updateTextures) volumeRenderer->updateTextures();
+        volumeRenderer->render(view, proj, cameraPos, volumePos, volumeScale, timeSeconds);
     }
 }
