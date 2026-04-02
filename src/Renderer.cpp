@@ -284,14 +284,15 @@ void Renderer::uploadAndDraw(const std::vector<InstanceAttrib>& data,
     glUniform3fv(glGetUniformLocation(sh.ID, "camUp"), 1, &camUp[0]);
 }
 
+
 void Renderer::drawObjectBillboards(const std::vector<InstanceAttrib>& data,
     shader& smokeShader,
     const glm::mat4& proj, const glm::mat4& view,
     const glm::vec3& camRight, const glm::vec3& camUp)
 {
     if (data.empty()) return;
-    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp);
     glDepthMask(GL_FALSE);
     billboards_.drawInstanced((int)data.size());
     glDepthMask(GL_TRUE);
@@ -303,9 +304,9 @@ void Renderer::drawFlames(const std::vector<InstanceAttrib>& data,
     const glm::vec3& camRight, const glm::vec3& camUp)
 {
     if (data.empty()) return;
-    uploadAndDraw(data, flameShader, proj, view, camRight, camUp);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive for fire glow
     glDepthMask(GL_FALSE);
+    uploadAndDraw(data, flameShader, proj, view, camRight, camUp);
     billboards_.drawInstanced((int)data.size());
     glDepthMask(GL_TRUE);
 }
@@ -316,9 +317,9 @@ void Renderer::drawSmoke(const std::vector<InstanceAttrib>& data,
     const glm::vec3& camRight, const glm::vec3& camUp)
 {
     if (data.empty()) return;
-    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
+    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp);;
     billboards_.drawInstanced((int)data.size());
     glDepthMask(GL_TRUE);
 }

@@ -45,16 +45,22 @@ struct Disturber {
 class ParticleSystem {
 public:
     void configure(const EmitterSettings& e, const GlobalParams& g);
-    void setSmoke(bool smoke);
+   /*
     void setSmokeDensity(float density);
+    void buildInstanceData(std::vector<InstanceAttrib>& out, const glm::mat4& viewProj) const;
+    void buildSmokeEmitPositions(std::vector<glm::vec3>& out) const;
+    */
+
+    void setSmoke(bool smoke);
     void setTornado(bool enabled, const glm::vec3& origin, float strength, float radius, float inflow, float updraft);
     void setDisturbers(const std::vector<Disturber>& d);
     void spawn(int count);
     void update(float dt, float time);
-    void buildInstanceData(std::vector<InstanceAttrib>& out, const glm::mat4& viewProj) const;
     void spawnAt(const glm::vec3& pos, float speed);
-    void buildSmokeEmitPositions(std::vector<glm::vec3>& out) const;
     void reset();
+    void buildSmokeInstanceData(std::vector<InstanceAttrib>& out, const glm::mat4& viewProj) const;
+    void buildFireInstanceData(std::vector<InstanceAttrib>& out, const glm::mat4& viewProj) const;
+
     int count() const { return (int)particles.size(); }
 private:
     std::vector<Particle> particles;

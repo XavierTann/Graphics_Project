@@ -191,6 +191,7 @@ int main()
 /***********************************************************************/
 
 //where the main scene rendering happens each frame. It also updates the scene state and prepares instance data for the billboards.
+
 static void renderFrame(float dt, float now)
 {
     glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
@@ -201,18 +202,18 @@ static void renderFrame(float dt, float now)
     scene.update(dt, now, camera.getViewProj());
 
 
-	//get camera matrices and billboard vectors for rendering
+    //get camera matrices and billboard vectors for rendering
     const glm::mat4& view = camera.getView();
     const glm::mat4& proj = camera.getProjection();
     const glm::vec3& right = camera.getBillboardRight();
     const glm::vec3& up = camera.getBillboardUp();
 
-	//draw the floor grid and the origin point
+    //draw the floor grid and the origin point
     renderer.drawGrid(view, proj);
     renderer.drawOriginPoint(view, proj, scene.emitter.origin);
 
 
-	// Draw wind arrow if enabled
+    // Draw wind arrow if enabled
     if (scene.enableWind && scene.showWind) {
         glm::vec3 windDir = scene.globals.wind;
         float len = glm::length(windDir);
@@ -223,12 +224,13 @@ static void renderFrame(float dt, float now)
     }
 
 
-	// Draw smoke, flames, and scene objects (objects drawn last to appear on top of particles)
+    // Draw smoke, flames, and scene objects (objects drawn last to appear on top of particles)
     renderer.drawMeshes(view, proj, scene.objects);
     renderer.drawObjectBillboards(scene.objectInstData, smokeShader, proj, view, right, up);
     renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up);
     if (scene.smokeEnabled)
         renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 /***********************************************************************/

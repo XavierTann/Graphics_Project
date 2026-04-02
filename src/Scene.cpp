@@ -24,13 +24,10 @@ void Scene::init()
     globals.turbFreq = 1.2f;
 
     flames.configure(emitter, globals);
-    flames.setSmoke(false);
+    // flames.setSmoke(false);  <-- remove
     flames.spawn(500);
 
-    EmitterSettings se = emitter; se.baseSize = 0.12f;
-    GlobalParams    sg = globals; sg.buoyancy = 0.6f; sg.cooling = 0.1f;
-    smokeSys.configure(se, sg);
-    smokeSys.setSmoke(true);
+    // smokeSys config no longer needed, smoke is integrated
     smokeEnabled = true;
     smokeWasEnabled_ = true;
 }
@@ -131,14 +128,15 @@ GlobalParams Scene::makeFueledGlobals(float intens) const
 // ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
-
 void Scene::update(float dt, float time, const glm::mat4& viewProj)
 {
+    // --- Handle smoke toggle ---
     if (!smokeEnabled) {
         if (smokeWasEnabled_) smokeSys.reset();
         smokeInstData.clear();
         smokeWasEnabled_ = false;
-    } else {
+    }
+    else {
         smokeWasEnabled_ = true;
     }
 
@@ -158,7 +156,6 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
 
     // --- Configure flame particle system ---
     flames.configure(fe, fg);
-    flames.setSmoke(false);
     flames.setTornado(enableWind && tornadoMode,
         emitter.origin, tornadoStrength,
         tornadoRadius, tornadoInflow, tornadoUpdraft);
@@ -175,14 +172,11 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
             objects, i);
         if (obj.burning) ++burningCount;
 
-        // Spawn fire/smoke particles from burning objects
+        // Spawn fire particles from burning objects (smoke is now integrated)
         for (int k = 0; k < spawnCount; ++k) {
-            flames.spawnAt(obj.pos,
-                std::max(0.05f, fe.initialSpeedMax));
-            if (smokeEnabled) smokeSys.spawnAt(obj.pos, 0.25f);
+            flames.spawnAt(obj.pos, std::max(0.05f, fe.initialSpeedMax));
         }
 
-        // Register as disturber if not fully ashed
         if (obj.disturbRadius > 0.01f && obj.disturbStrength > 0.01f && obj.ash < 1.0f) {
             Disturber d;
             d.pos = obj.pos;
@@ -193,10 +187,6 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     }
 
     flames.setDisturbers(disturbers);
-    if (smokeEnabled) {
-        smokeSys.setDisturbers(disturbers);
-        smokeSys.setSmokeDensity(0.25f + 1.25f * intens + 0.12f * (float)burningCount);
-    }
 
     // --- Spawn main flame particles ---
     static float flameSpawnAcc = 0.0f;
@@ -216,40 +206,15 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
         if (newFlames > 0) flames.spawn(newFlames);
     }
 
-    // --- Update flames & build instance data ---
+    // --- Update flames & build split instance data ---
     flames.update(dt, time);
-    flames.buildInstanceData(flameInstData, viewProj);
+    flames.buildFireInstanceData(flameInstData, viewProj);
 
-    // --- Smoke from cooling flames ---
+    // Smoke integrated into fire system, only build if enabled
     if (smokeEnabled) {
-        std::vector<glm::vec3> emitPositions;
-        flames.buildSmokeEmitPositions(emitPositions);
-        int smokePerEmit = fuelEnabled ? std::max(0, (int)(intens * 3.0f + 0.5f)) : 1;
-        for (const auto& ep : emitPositions)
-            for (int i = 0; i < smokePerEmit; ++i)
-                smokeSys.spawnAt(ep, 0.3f);
+        flames.buildSmokeInstanceData(smokeInstData, viewProj);
     }
-
-    // --- Configure smoke system ---
-    if (smokeEnabled) {
-        EmitterSettings se = emitter;
-        se.baseSize = emitter.baseSize * 2.2f;
-
-        GlobalParams sg = fg;
-        sg.buoyancy = globals.buoyancy * 0.35f;
-        sg.turbAmp = globals.turbAmp * 0.8f;
-        sg.turbFreq = globals.turbFreq * 0.6f;
-        smokeSys.configure(se, sg);
-        smokeSys.setSmoke(true);
-        smokeSys.setTornado(enableWind && tornadoMode,
-            emitter.origin,
-            tornadoStrength * 0.8f,
-            tornadoRadius * 1.2f,
-            tornadoInflow * 0.6f,
-            tornadoUpdraft * 0.8f);
-        smokeSys.update(dt, time);
-        smokeSys.buildInstanceData(smokeInstData, viewProj);
-    } else {
+    else {
         smokeInstData.clear();
     }
 
@@ -277,9 +242,9 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
 void Scene::reset()
 {
     flames.reset();
-    smokeSys.reset();
-    flames.setSmoke(false);
-    smokeSys.setSmoke(smokeEnabled);
+    // smokeSys.reset();        <-- remove, smokeSys unused
+    // flames.setSmoke(false);  <-- remove
+    // smokeSys.setSmoke(...);  <-- remove
     fuel = fuelMax;
     flames.spawn(500);
 }
