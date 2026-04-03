@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 
+
 void ParticleSystem::configure(const EmitterSettings& e, const GlobalParams& g) {
     emitter = e;
     params = g;
@@ -93,9 +94,6 @@ void ParticleSystem::spawnAt(const glm::vec3& pos, float speed) {
     particles.push_back(pr);
 }
 
-// ===========================================================================
-//  Utility noise / curl  (kept as fallback when NS grid is disabled)
-// ===========================================================================
 
 float ParticleSystem::randf(float a, float b, float s) const {
     float x = std::sin(s * 12.9898f) * 43758.5453f;
@@ -120,6 +118,7 @@ glm::vec3 ParticleSystem::computeCurl(const glm::vec3& p) const {
 }
 
 
+
 void ParticleSystem::update(float dt, float time) {
     if (nsEnabled)
         stepFluid(dt);
@@ -132,10 +131,8 @@ void ParticleSystem::update(float dt, float time) {
 
         if (nsEnabled) {
             glm::vec3 gridVel = nsGrid.sampleVelocity(p.pos);
-
             float blend = smokeMode ? 0.92f : 0.70f;
             p.vel = glm::mix(p.vel, gridVel, blend);
-
             float localT = nsGrid.sampleScalar(nsGrid.temperature, p.pos);
             p.vel.y += params.buoyancy * localT * dt * 0.5f;
         }
@@ -190,8 +187,6 @@ void ParticleSystem::update(float dt, float time) {
         }
 
         p.pos += p.vel * dt;
-
-       
         if (smokeMode) {
             p.size = emitter.baseSize * (0.7f + t * 2.5f);
             float a = (1.0f - t);
