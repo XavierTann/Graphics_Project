@@ -16,6 +16,7 @@
     <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\BillboardRenderer.cpp" />
     <ClCompile Include="src\MeshLoader.cpp" />
+    <ClCompile Include="src\NavierStokes.cpp" />
     <ClCompile Include="src\Particles.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Renderer.cpp" />
