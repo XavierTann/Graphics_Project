@@ -6,10 +6,121 @@
 #include <imgui/imgui.h>
 #include <algorithm>
 
+namespace {
+
+void applyEmberTheme()
+{
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowPadding = ImVec2(14.0f, 12.0f);
+    style.FramePadding = ImVec2(10.0f, 6.0f);
+    style.CellPadding = ImVec2(8.0f, 6.0f);
+    style.ItemSpacing = ImVec2(10.0f, 10.0f);
+    style.ItemInnerSpacing = ImVec2(8.0f, 6.0f);
+    style.TouchExtraPadding = ImVec2(0.0f, 0.0f);
+    style.IndentSpacing = 18.0f;
+    style.ScrollbarSize = 14.0f;
+    style.GrabMinSize = 10.0f;
+
+    style.WindowBorderSize = 1.0f;
+    style.ChildBorderSize = 1.0f;
+    style.PopupBorderSize = 1.0f;
+    style.FrameBorderSize = 0.0f;
+    style.TabBorderSize = 0.0f;
+
+    style.WindowRounding = 14.0f;
+    style.ChildRounding = 12.0f;
+    style.FrameRounding = 8.0f;
+    style.PopupRounding = 10.0f;
+    style.ScrollbarRounding = 12.0f;
+    style.GrabRounding = 8.0f;
+    style.TabRounding = 10.0f;
+
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_Text] = ImVec4(0.96f, 0.91f, 0.84f, 1.00f);
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.65f, 0.58f, 0.50f, 1.00f);
+    colors[ImGuiCol_WindowBg] = ImVec4(0.08f, 0.06f, 0.05f, 0.97f);
+    colors[ImGuiCol_ChildBg] = ImVec4(0.13f, 0.09f, 0.07f, 0.92f);
+    colors[ImGuiCol_PopupBg] = ImVec4(0.10f, 0.07f, 0.06f, 0.98f);
+    colors[ImGuiCol_Border] = ImVec4(0.33f, 0.21f, 0.16f, 0.90f);
+    colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.12f, 0.09f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.31f, 0.17f, 0.12f, 1.00f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.42f, 0.22f, 0.12f, 1.00f);
+    colors[ImGuiCol_TitleBg] = ImVec4(0.19f, 0.10f, 0.07f, 1.00f);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.30f, 0.13f, 0.08f, 1.00f);
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.12f, 0.07f, 0.05f, 1.00f);
+    colors[ImGuiCol_MenuBarBg] = ImVec4(0.16f, 0.10f, 0.08f, 1.00f);
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.09f, 0.07f, 0.06f, 0.75f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.37f, 0.22f, 0.15f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.54f, 0.31f, 0.19f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.67f, 0.37f, 0.18f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.98f, 0.68f, 0.30f, 1.00f);
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.92f, 0.51f, 0.20f, 1.00f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(1.00f, 0.66f, 0.24f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.34f, 0.18f, 0.11f, 1.00f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.50f, 0.25f, 0.13f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.64f, 0.29f, 0.12f, 1.00f);
+    colors[ImGuiCol_Header] = ImVec4(0.25f, 0.14f, 0.10f, 0.95f);
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.41f, 0.22f, 0.13f, 0.95f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.55f, 0.27f, 0.13f, 0.95f);
+    colors[ImGuiCol_Separator] = ImVec4(0.42f, 0.25f, 0.18f, 0.85f);
+    colors[ImGuiCol_SeparatorHovered] = ImVec4(0.71f, 0.44f, 0.24f, 0.90f);
+    colors[ImGuiCol_SeparatorActive] = ImVec4(0.82f, 0.54f, 0.25f, 0.95f);
+    colors[ImGuiCol_ResizeGrip] = ImVec4(0.68f, 0.39f, 0.18f, 0.35f);
+    colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.84f, 0.53f, 0.25f, 0.65f);
+    colors[ImGuiCol_ResizeGripActive] = ImVec4(0.93f, 0.64f, 0.28f, 0.95f);
+    colors[ImGuiCol_Tab] = ImVec4(0.18f, 0.11f, 0.08f, 1.00f);
+    colors[ImGuiCol_TabHovered] = ImVec4(0.46f, 0.25f, 0.15f, 1.00f);
+    colors[ImGuiCol_TabActive] = ImVec4(0.58f, 0.30f, 0.15f, 1.00f);
+    colors[ImGuiCol_TabSelected] = colors[ImGuiCol_TabActive];
+    colors[ImGuiCol_TabDimmed] = ImVec4(0.12f, 0.08f, 0.06f, 1.00f);
+    colors[ImGuiCol_TabDimmedSelected] = ImVec4(0.31f, 0.18f, 0.11f, 1.00f);
+    colors[ImGuiCol_PlotLines] = ImVec4(0.88f, 0.59f, 0.28f, 1.00f);
+    colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.99f, 0.74f, 0.34f, 1.00f);
+    colors[ImGuiCol_PlotHistogram] = ImVec4(0.94f, 0.62f, 0.27f, 1.00f);
+    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.76f, 0.39f, 1.00f);
+    colors[ImGuiCol_TableHeaderBg] = ImVec4(0.24f, 0.14f, 0.10f, 1.00f);
+    colors[ImGuiCol_TableBorderStrong] = ImVec4(0.41f, 0.25f, 0.17f, 1.00f);
+    colors[ImGuiCol_TableBorderLight] = ImVec4(0.23f, 0.15f, 0.11f, 1.00f);
+    colors[ImGuiCol_TableRowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4(0.16f, 0.10f, 0.08f, 0.35f);
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.81f, 0.44f, 0.18f, 0.35f);
+    colors[ImGuiCol_DragDropTarget] = ImVec4(0.97f, 0.73f, 0.34f, 0.90f);
+    colors[ImGuiCol_NavCursor] = ImVec4(0.96f, 0.67f, 0.28f, 1.00f);
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 0.73f, 0.35f, 0.70f);
+}
+
+void drawSectionHeader(const char* title, const char* subtitle = nullptr)
+{
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.99f, 0.72f, 0.32f, 1.0f));
+    ImGui::TextUnformatted(title);
+    ImGui::PopStyleColor();
+    if (subtitle && subtitle[0] != '\0') {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s", subtitle);
+        ImGui::PopStyleColor();
+    }
+    ImGui::Separator();
+}
+
+void drawProgressRow(const char* label, float fraction, const char* overlay)
+{
+    ImGui::TextUnformatted(label);
+    ImGui::ProgressBar(std::clamp(fraction, 0.0f, 1.0f), ImVec2(-1.0f, 8.0f), overlay);
+}
+
+float halfWidth()
+{
+    return (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+}
+
+}
+
 void UI::init(Scene* scene, Camera* camera)
 {
     scene_ = scene;
     camera_ = camera;
+    applyEmberTheme();
 }
 
 void UI::draw(const ImGuiIO& io)
@@ -31,70 +142,91 @@ void UI::drawObjectsPanel()
     ImVec2 winSize = vp->WorkSize;
 
     ImGui::SetNextWindowPos({ winPos.x + PAD, winPos.y + PAD }, ImGuiCond_Always);
-    float pw = std::min(320.0f, std::max(200.0f, winSize.x - 2.0f * PAD));
+    float pw = std::min(360.0f, std::max(240.0f, winSize.x * 0.26f));
     float ph = std::max(120.0f, winSize.y - 2.0f * PAD);
     ImGui::SetNextWindowSize({ pw, ph }, ImGuiCond_Always);
 
-    ImGui::Begin("Objects", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-    ImGui::Button("Refresh");
+    ImGui::Begin("Scene & Assets", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     static const std::vector<std::string> empty;
     const auto& available = scene_->availableMeshNames
         ? *scene_->availableMeshNames
         : empty;
 
-    if (available.empty()) {
-        ImGui::Text("No objects found.");
-    }
-    else {
-        ImGui::Text("Data folder: ./data");
-        ImGui::Separator();
-        for (int i = 0; i < (int)available.size(); ++i) {
-            if (ImGui::Selectable(available[i].c_str(), selectedMeshIndex_ == i))
-                selectedMeshIndex_ = i;
-        }
-        if (selectedMeshIndex_ >= 0 && selectedMeshIndex_ < (int)available.size()) {
-            if (ImGui::Button("Add Selected")) {
-                SceneObject obj;
-                obj.meshFile = available[selectedMeshIndex_];
-                obj.pos = scene_->emitter.origin;
-                obj.pos.y = 0.0f;
-                scene_->objects.push_back(obj);
-                scene_->selectedObjectIndex = (int)scene_->objects.size() - 1;
+    drawSectionHeader("Asset Library", "Meshes in ./data are discovered automatically.");
+    ImGui::Text("%d mesh asset%s available", (int)available.size(), available.size() == 1 ? "" : "s");
+    ImGui::Spacing();
+
+    if (ImGui::BeginChild("asset_library", ImVec2(0.0f, 220.0f), true)) {
+        if (available.empty()) {
+            ImGui::TextWrapped("No .glb assets were found in the data folder.");
+        } else {
+            for (int i = 0; i < (int)available.size(); ++i) {
+                if (ImGui::Selectable(available[i].c_str(), selectedMeshIndex_ == i, ImGuiSelectableFlags_AllowDoubleClick))
+                    selectedMeshIndex_ = i;
             }
         }
     }
+    ImGui::EndChild();
 
-    ImGui::Separator();
-    ImGui::Text("Scene Objects");
-    auto& objects = scene_->objects;
-    if (objects.empty()) {
-        ImGui::Text("None");
-    }
-    else {
-        for (int i = 0; i < (int)objects.size(); ++i) {
-            std::string label = std::to_string(i) + ": " + objects[i].meshFile;
-            if (ImGui::Selectable(label.c_str(), scene_->selectedObjectIndex == i))
-                scene_->selectedObjectIndex = i;
+    if (selectedMeshIndex_ >= 0 && selectedMeshIndex_ < (int)available.size()) {
+        ImGui::Spacing();
+        if (ImGui::Button("Add Selected Mesh", ImVec2(-1.0f, 0.0f))) {
+            SceneObject obj;
+            obj.meshFile = available[selectedMeshIndex_];
+            obj.pos = scene_->emitter.origin;
+            obj.pos.y = 0.0f;
+            scene_->objects.push_back(obj);
+            scene_->selectedObjectIndex = (int)scene_->objects.size() - 1;
         }
+    }
 
-        int& sel = scene_->selectedObjectIndex;
-        if (sel >= 0 && sel < (int)objects.size()) {
-            SceneObject& obj = objects[sel];
-            ImGui::Separator();
+    ImGui::Spacing();
+    drawSectionHeader("Placed Objects");
+
+    auto& objects = scene_->objects;
+
+    if (ImGui::BeginChild("scene_objects", ImVec2(0.0f, 180.0f), true)) {
+        if (objects.empty()) {
+            ImGui::TextWrapped("No objects have been placed in the scene yet.");
+        } else {
+            for (int i = 0; i < (int)objects.size(); ++i) {
+                std::string label = std::to_string(i + 1) + ". " + objects[i].meshFile;
+                if (ImGui::Selectable(label.c_str(), scene_->selectedObjectIndex == i))
+                    scene_->selectedObjectIndex = i;
+            }
+        }
+    }
+    ImGui::EndChild();
+
+    int& sel = scene_->selectedObjectIndex;
+    if (sel >= 0 && sel < (int)objects.size()) {
+        SceneObject& obj = objects[sel];
+        ImGui::Spacing();
+        drawSectionHeader("Selected Object", obj.meshFile.c_str());
+
+        if (ImGui::BeginChild("selected_object", ImVec2(0.0f, 0.0f), true)) {
             ImGui::DragFloat3("Position", (float*)&obj.pos, 0.02f);
+            ImGui::Spacing();
+            ImGui::TextUnformatted("Combustion");
             ImGui::SliderFloat("Burnability", &obj.burnability, 0.0f, 1.0f);
             ImGui::SliderFloat("Fuel", &obj.fuel, 0.0f, obj.fuelMax);
             ImGui::SliderFloat("Fuel Max", &obj.fuelMax, 0.1f, 50.0f);
             if (obj.fuel > obj.fuelMax) obj.fuel = obj.fuelMax;
             ImGui::SliderFloat("Burn Rate", &obj.burnRate, 0.0f, 10.0f);
+
+            ImGui::Spacing();
+            ImGui::TextUnformatted("Particle Influence");
             ImGui::SliderFloat("Disturb Radius", &obj.disturbRadius, 0.0f, 10.0f);
             ImGui::SliderFloat("Disturb Strength", &obj.disturbStrength, 0.0f, 20.0f);
-            if (ImGui::Button("Remove")) {
+
+            ImGui::Spacing();
+            if (ImGui::Button("Remove Object", ImVec2(-1.0f, 0.0f))) {
                 objects.erase(objects.begin() + sel);
                 if (sel >= (int)objects.size()) sel = (int)objects.size() - 1;
             }
         }
+        ImGui::EndChild();
     }
 
     ImGui::End();
@@ -110,81 +242,117 @@ void UI::drawControlsPanel(const ImGuiIO& io)
 
     ImGui::SetNextWindowPos({ winPos.x + winSize.x - PAD, winPos.y + PAD },
         ImGuiCond_Always, { 1.0f, 0.0f });
-    float pw = std::min(320.0f, std::max(200.0f, winSize.x - 2.0f * PAD));
+    float pw = std::min(390.0f, std::max(260.0f, winSize.x * 0.30f));
     float ph = std::max(120.0f, winSize.y - 2.0f * PAD);
     ImGui::SetNextWindowSize({ pw, ph }, ImGuiCond_Always);
 
-    ImGui::Begin("Ember Engine Controls", NULL,
+    ImGui::Begin("Ember Control Deck", NULL,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
-    if (ImGui::CollapsingHeader("Global Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Checkbox("Enable Wind", &scene_->enableWind);
-        if (scene_->enableWind) {
-            ImGui::Checkbox("Show Wind Dir", &scene_->showWind);
-            ImGui::SliderFloat("Wind Strength", &scene_->windStrength, 0.0f, 10.0f);
-            ImGui::SliderFloat3("Wind Dir", (float*)&scene_->globals.wind, -1.0f, 1.0f);
-            if (ImGui::Button("Reset Wind"))  scene_->globals.wind = glm::vec3(0.0f);
-            ImGui::Checkbox("Tornado Mode", &scene_->tornadoMode);
-            if (scene_->tornadoMode) {
-                ImGui::SliderFloat("Tornado Strength", &scene_->tornadoStrength, 0.0f, 20.0f);
-                ImGui::SliderFloat("Tornado Radius", &scene_->tornadoRadius, 0.2f, 20.0f);
-                ImGui::SliderFloat("Tornado Inflow", &scene_->tornadoInflow, 0.0f, 10.0f);
-                ImGui::SliderFloat("Tornado Updraft", &scene_->tornadoUpdraft, 0.0f, 10.0f);
-            }
+    if (ImGui::BeginChild("overview_card", ImVec2(0.0f, 122.0f), true)) {
+        drawSectionHeader("Live Fire State", "A compact overview of the active simulation.");
+        ImGui::Text("Frame Rate: %.1f FPS", io.Framerate);
+        ImGui::SameLine();
+        ImGui::TextDisabled(scene_->smokeEnabled ? "Smoke On" : "Smoke Off");
+        drawProgressRow("Intensity", scene_->intensity(), "");
+        float fuelFrac = scene_->fuelMax > 0.0f ? scene_->fuel / scene_->fuelMax : 0.0f;
+        drawProgressRow("Fuel Reserve", scene_->fuelEnabled ? fuelFrac : 1.0f, scene_->fuelEnabled ? "" : "Disabled");
+    }
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    if (ImGui::BeginChild("quick_actions", ImVec2(0.0f, 168.0f), true)) {
+        drawSectionHeader("Quick Actions");
+
+        float buttonWidth = halfWidth();
+        if (ImGui::Button("Lighter", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Lighter");
+        ImGui::SameLine();
+        if (ImGui::Button("Campfire", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Campfire");
+        if (ImGui::Button("Wildfire", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Wildfire");
+        ImGui::SameLine();
+        if (ImGui::Button("Iris Fire", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Iris Fire");
+
+        ImGui::Spacing();
+        if (ImGui::Button("Restart Simulation", ImVec2(-1.0f, 0.0f))) wantRestart = true;
+
+        float actionWidth = halfWidth();
+        if (ImGui::Button("Save Config", ImVec2(actionWidth, 0.0f))) wantSaveConfig = true;
+        ImGui::SameLine();
+        if (ImGui::Button("Load Config", ImVec2(actionWidth, 0.0f))) wantLoadConfig = true;
+    }
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    if (ImGui::BeginTabBar("ember_tabs")) {
+        if (ImGui::BeginTabItem("Simulation")) {
+            ImGui::Checkbox("Enable Smoke Trail", &scene_->smokeEnabled);
+            ImGui::Spacing();
+            drawSectionHeader("Combustion");
+            ImGui::SliderFloat("Buoyancy", &scene_->globals.buoyancy, 0.0f, 5.0f);
+            ImGui::SliderFloat("Cooling", &scene_->globals.cooling, 0.01f, 1.0f);
+            ImGui::Spacing();
+            drawSectionHeader("Turbulence");
+            ImGui::SliderFloat("Amplitude", &scene_->globals.turbAmp, 0.0f, 2.0f);
+            ImGui::SliderFloat("Frequency", &scene_->globals.turbFreq, 0.1f, 5.0f);
+            ImGui::EndTabItem();
         }
-        ImGui::Checkbox("Enable Smoke", &scene_->smokeEnabled);
-        ImGui::SliderFloat("Buoyancy", &scene_->globals.buoyancy, 0.0f, 5.0f);
-        ImGui::SliderFloat("Cooling", &scene_->globals.cooling, 0.01f, 1.0f);
-        ImGui::SliderFloat("Turbulence Amp", &scene_->globals.turbAmp, 0.0f, 2.0f);
-        ImGui::SliderFloat("Turbulence Freq", &scene_->globals.turbFreq, 0.1f, 5.0f);
+
+        if (ImGui::BeginTabItem("Wind")) {
+            ImGui::Checkbox("Enable Wind Field", &scene_->enableWind);
+            if (scene_->enableWind) {
+                ImGui::Checkbox("Show Wind Arrow", &scene_->showWind);
+                ImGui::SliderFloat("Strength", &scene_->windStrength, 0.0f, 10.0f);
+                ImGui::SliderFloat3("Direction", (float*)&scene_->globals.wind, -1.0f, 1.0f);
+                if (ImGui::Button("Reset Wind Direction", ImVec2(-1.0f, 0.0f)))
+                    scene_->globals.wind = glm::vec3(0.0f);
+
+                ImGui::Spacing();
+                drawSectionHeader("Tornado Field");
+                ImGui::Checkbox("Enable Tornado Mode", &scene_->tornadoMode);
+                if (scene_->tornadoMode) {
+                    ImGui::SliderFloat("Swirl Strength", &scene_->tornadoStrength, 0.0f, 20.0f);
+                    ImGui::SliderFloat("Radius", &scene_->tornadoRadius, 0.2f, 20.0f);
+                    ImGui::SliderFloat("Inflow", &scene_->tornadoInflow, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Updraft", &scene_->tornadoUpdraft, 0.0f, 10.0f);
+                }
+            }
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Emitter")) {
+            drawSectionHeader("Source Shape");
+            ImGui::SliderFloat("Radius", &scene_->emitter.radius, 0.01f, 1.0f);
+            ImGui::SliderFloat("Base Size", &scene_->emitter.baseSize, 0.01f, 0.5f);
+            ImGui::Spacing();
+            drawSectionHeader("Particle Launch");
+            ImGui::SliderFloat("Lifetime", &scene_->emitter.lifetimeBase, 0.1f, 5.0f);
+            ImGui::SliderFloat("Min Speed", &scene_->emitter.initialSpeedMin, 0.0f, 5.0f);
+            ImGui::SliderFloat("Max Speed", &scene_->emitter.initialSpeedMax, 0.0f, 5.0f);
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Fuel")) {
+            ImGui::Checkbox("Enable Fuel System", &scene_->fuelEnabled);
+            ImGui::Checkbox("Infinite Fuel", &scene_->fuelInfinite);
+            ImGui::Checkbox("Blow Away When Empty", &scene_->fuelBlowAway);
+            ImGui::SliderFloat("Fuel Capacity", &scene_->fuelMax, 1.0f, 200.0f);
+            if (scene_->fuelMax < 1.0f) scene_->fuelMax = 1.0f;
+            if (scene_->fuel > scene_->fuelMax) scene_->fuel = scene_->fuelMax;
+            ImGui::SliderFloat("Current Fuel", &scene_->fuel, 0.0f, scene_->fuelMax);
+            ImGui::SliderFloat("Burn Rate", &scene_->fuelBurnRate, 0.0f, 20.0f);
+            ImGui::SliderFloat("Refill Amount", &scene_->addFuelAmount, 0.0f, 50.0f);
+            if (ImGui::Button("Add Fuel Now", ImVec2(-1.0f, 0.0f))) scene_->addFuel();
+
+            float frac = scene_->fuelEnabled
+                ? (scene_->fuelMax > 0.0f ? scene_->fuel / scene_->fuelMax : 0.0f)
+                : 1.0f;
+            ImGui::Spacing();
+            drawProgressRow("Fuel Level", frac, scene_->fuelEnabled ? "" : "Disabled");
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
     }
 
-
-    if (ImGui::CollapsingHeader("Emitter Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Radius", &scene_->emitter.radius, 0.01f, 1.0f);
-        ImGui::SliderFloat("Base Size", &scene_->emitter.baseSize, 0.01f, 0.5f);
-        ImGui::SliderFloat("Lifetime", &scene_->emitter.lifetimeBase, 0.1f, 5.0f);
-        ImGui::SliderFloat("Speed Min", &scene_->emitter.initialSpeedMin, 0.0f, 5.0f);
-        ImGui::SliderFloat("Speed Max", &scene_->emitter.initialSpeedMax, 0.0f, 5.0f);
-    }
-
-
-    ImGui::Separator();
-    ImGui::Text("Presets");
-    if (ImGui::Button("Lighter"))   scene_->applyPreset("Lighter");
-    ImGui::SameLine();
-    if (ImGui::Button("Campfire"))  scene_->applyPreset("Campfire");
-    ImGui::SameLine();
-    if (ImGui::Button("Wildfire"))  scene_->applyPreset("Wildfire");
-    ImGui::SameLine();
-    if (ImGui::Button("Iris Fire")) scene_->applyPreset("Iris Fire");
-
-
-    if (ImGui::CollapsingHeader("Fuel", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Checkbox("Enable Fuel", &scene_->fuelEnabled);
-        ImGui::Checkbox("Infinite Fuel", &scene_->fuelInfinite);
-        ImGui::Checkbox("Blow Away When Out", &scene_->fuelBlowAway);
-        ImGui::SliderFloat("Fuel Max", &scene_->fuelMax, 1.0f, 200.0f);
-        if (scene_->fuelMax < 1.0f) scene_->fuelMax = 1.0f;
-        if (scene_->fuel > scene_->fuelMax) scene_->fuel = scene_->fuelMax;
-        ImGui::SliderFloat("Fuel", &scene_->fuel, 0.0f, scene_->fuelMax);
-        ImGui::SliderFloat("Burn Rate", &scene_->fuelBurnRate, 0.0f, 20.0f);
-        ImGui::SliderFloat("Add Fuel Amount", &scene_->addFuelAmount, 0.0f, 50.0f);
-        if (ImGui::Button("Add Fuel Now"))     scene_->addFuel();
-        float frac = scene_->fuelEnabled
-            ? (scene_->fuelMax > 0.0f ? scene_->fuel / scene_->fuelMax : 0.0f)
-            : 1.0f;
-        ImGui::ProgressBar(frac, ImVec2(-1.0f, 0.0f));
-    }
-
-
-    ImGui::Separator();
-    if (ImGui::Button("Restart"))              wantRestart = true;
-    ImGui::SameLine();
-    if (ImGui::Button("Save Config (F5)"))     wantSaveConfig = true;
-    ImGui::SameLine();
-    if (ImGui::Button("Load Config (F9)"))     wantLoadConfig = true;
-
-    ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
     ImGui::End();
 }
