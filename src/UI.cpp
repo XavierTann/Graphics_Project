@@ -177,7 +177,7 @@ void UI::drawObjectsPanel()
     const auto& available = scene_->availableMeshNames
         ? *scene_->availableMeshNames : empty;
     auto& objects = scene_->objects;
-    int& sel = scene_->selectedObjectIndex
+    int& sel = scene_->selectedObjectIndex;
     drawSectionHeader("Asset library");
 
     if (ImGui::BeginChild("asset_lib", ImVec2(0.0f, 100.0f), true)) {
@@ -277,7 +277,6 @@ void UI::drawObjectsPanel()
         };
 
     bool lmb = ImGui::IsMouseDown(0);
-    bool rmb = ImGui::IsMouseDown(1);
     bool mmb = ImGui::IsMouseDown(2);
     bool wKey = ImGui::IsKeyDown(ImGuiKey_W);
     bool aKey = ImGui::IsKeyDown(ImGuiKey_A);
@@ -290,13 +289,9 @@ void UI::drawObjectsPanel()
     if (ImGui::BeginChild("controls_ref", ImVec2(0.0f, 0.0f), true)) {
 
         ImGui::TextDisabled("camera");
-        key("LMB", lmb); ImGui::SameLine();
+        key("Left Mouse", lmb); ImGui::SameLine();
         ImGui::TextUnformatted("Drag obj / orbit");
-
-        key("RMB", rmb); ImGui::SameLine();
-        ImGui::TextUnformatted("Orbit camera");
-
-        key("MMB", mmb); ImGui::SameLine();
+        key("Middle Mouse", mmb); ImGui::SameLine();
         ImGui::TextUnformatted("Pan camera");
 
         ImGui::TextDisabled("Scroll  —  zoom");
