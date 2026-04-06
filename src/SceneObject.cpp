@@ -24,7 +24,8 @@ int SceneObject::update(float dt,
     if (!burning && fuel > 0.0f && burnability > 0.0f) {
         // Proximity to the main emitter
         float d0 = glm::length(pos - mainOrigin);
-        if (intensity > 0.2f && d0 < (1.2f + mainRadius * 2.0f)) {
+        float igniteRange = (0.8f + intensity * 1.8f) + mainRadius * 2.0f;
+        if (intensity > 0.2f && d0 < igniteRange) {
             burning = true;
         }
 
@@ -33,7 +34,8 @@ int SceneObject::update(float dt,
             for (int j = 0; j < (int)others.size(); ++j) {
                 if (j == selfIndex) continue;
                 if (!others[j].burning) continue;
-                if (glm::length(pos - others[j].pos) < 1.0f) {
+                float spreadDist = 0.6f + others[j].burnability * 0.8f;
+                if (glm::length(pos - others[j].pos) < spreadDist) {
                     burning = true;
                     break;
                 }

@@ -174,14 +174,21 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
 
         // Spawn fire particles from burning objects (smoke is now integrated)
         for (int k = 0; k < spawnCount; ++k) {
-            flames.spawnAt(obj.pos, std::max(0.05f, fe.initialSpeedMax));
+            float angle = (float)k / spawnCount * 6.28f + time;
+            float r = obj.markerSize * 0.3f * (0.5f + (float)k * 0.1f);
+            glm::vec3 spawnPos = obj.pos + glm::vec3(
+                std::cos(angle) * r,
+                0.0f,
+                std::sin(angle) * r
+            );
+            flames.spawnAt(spawnPos, std::max(0.05f, fe.initialSpeedMax * (1.0f - obj.ash)));
         }
 
-        if (obj.disturbRadius > 0.01f && obj.disturbStrength > 0.01f && obj.ash < 1.0f) {
+        if (obj.burning && obj.disturbRadius > 0.01f && obj.ash < 1.0f) {
             Disturber d;
             d.pos = obj.pos;
-            d.radius = obj.disturbRadius;
-            d.strength = obj.disturbStrength * (obj.burning ? 1.4f : 1.0f);
+            d.radius = obj.disturbRadius * (1.0f - obj.ash * 0.5f);
+            d.strength = obj.disturbStrength * (1.0f - obj.ash) * (obj.fuel / obj.fuelMax);
             disturbers.push_back(d);
         }
     }
@@ -216,22 +223,6 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     }
     else {
         smokeInstData.clear();
-    }
-
-    // --- Build object billboard instance data ---
-    objectInstData.clear();
-    objectInstData.reserve(objects.size());
-    for (const auto& obj : objects) {
-        InstanceAttrib inst;
-        inst.pos = obj.pos;
-        inst.size = obj.markerSize;
-        if (obj.ash >= 1.0f)
-            inst.color = glm::vec4(0.25f, 0.25f, 0.25f, 0.6f);
-        else if (obj.burning)
-            inst.color = glm::vec4(1.0f, 0.5f, 0.05f, 0.9f);
-        else
-            inst.color = glm::vec4(0.0f, 0.9f, 0.1f, 0.85f);
-        objectInstData.push_back(inst);
     }
 }
 

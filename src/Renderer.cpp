@@ -242,10 +242,43 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
         glm::mat4 mvp = proj * view * model;
 
         glm::vec4 col;
-        if (obj.ash >= 1.0f) col = glm::vec4(0.25f, 0.25f, 0.25f, 1.0f);
-        else if (obj.burning)     col = glm::vec4(1.0f, 0.45f, 0.05f, 1.0f);
-        else if (mesh->textured)  col = glm::vec4(1.0f);
-        else                      col = glm::vec4(0.1f, 0.8f, 0.2f, 1.0f);
+        float ashT = obj.ash;
+
+        if (!obj.burning && ashT < 0.01f) {
+            col = mesh->textured ? glm::vec4(1.0f) : glm::vec4(0.1f, 0.8f, 0.2f, 1.0f);
+        }
+        else if (ashT < 0.15f) {
+            float t = ashT / 0.15f;
+            glm::vec4 base = mesh->textured ? glm::vec4(1.0f) : glm::vec4(0.1f, 0.8f, 0.2f, 1.0f);
+            col = glm::mix(base, glm::vec4(1.0f, 0.95f, 0.6f, 1.0f), t);
+        }
+        else if (ashT < 0.40f) {
+            float t = (ashT - 0.15f) / 0.25f;
+            col = glm::mix(glm::vec4(1.0f, 0.95f, 0.6f, 1.0f),
+                glm::vec4(1.0f, 0.35f, 0.02f, 1.0f), t);
+        }
+        else if (ashT < 0.70f) {
+            float t = (ashT - 0.40f) / 0.30f;
+            col = glm::mix(glm::vec4(1.0f, 0.35f, 0.02f, 1.0f),
+                glm::vec4(0.35f, 0.06f, 0.01f, 1.0f), t);
+        }
+        else if (ashT < 0.90f) {
+            float t = (ashT - 0.70f) / 0.20f;
+            col = glm::mix(glm::vec4(0.35f, 0.06f, 0.01f, 1.0f),
+                glm::vec4(0.18f, 0.16f, 0.14f, 1.0f), t);
+        }
+        else {
+            float t = (ashT - 0.90f) / 0.10f;
+            col = glm::mix(glm::vec4(0.18f, 0.16f, 0.14f, 1.0f),
+                glm::vec4(0.10f, 0.10f, 0.10f, 1.0f), t);
+        }
+
+        // Flicker while actively burning
+        if (obj.burning && ashT < 0.85f) {
+            float flicker = 0.92f + 0.08f * std::sin(ashT * 47.3f + obj.fuel);
+            col.r *= flicker;
+            col.g *= flicker * 0.85f;
+        }
 
         glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);
         glUniform4fv(locCol, 1, &col[0]);
