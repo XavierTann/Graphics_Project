@@ -24,10 +24,8 @@ void Scene::init()
     globals.turbFreq = 1.2f;
 
     flames.configure(emitter, globals);
-    // flames.setSmoke(false);  <-- remove
     flames.spawn(500);
 
-    // smokeSys config no longer needed, smoke is integrated
     smokeEnabled = true;
     smokeWasEnabled_ = true;
 }
@@ -50,8 +48,8 @@ float Scene::intensity() const
 void Scene::applyPreset(const std::string& name)
 {
     if (name == "Lighter") {
-        emitter.radius = 0.05f;
-        emitter.baseSize = 0.06f;
+        emitter.radius = 0.54f;
+        emitter.baseSize = 0.2f;
         emitter.lifetimeBase = 1.6f;
         emitter.initialSpeedMin = 0.08f;
         emitter.initialSpeedMax = 0.22f;
@@ -78,17 +76,6 @@ void Scene::applyPreset(const std::string& name)
         globals.buoyancy = 1.4f;
         globals.turbAmp = 1.0f;
         globals.turbFreq = 1.3f;
-    }
-    else if (name == "Iris Fire") {
-        emitter.radius = 0.16f;
-        emitter.initialSpeedMin = 0.3f;
-        emitter.initialSpeedMax = 0.5f;
-        emitter.baseSize = 0.08f;
-        emitter.lifetimeBase = 1.0f;
-        globals.wind = glm::vec3(0.0f);
-        globals.turbAmp = 0.0f;
-        globals.cooling = 0.5f;
-        enableWind = false;
     }
 }
 

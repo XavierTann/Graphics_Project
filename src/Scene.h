@@ -27,7 +27,7 @@ public:
     // ---- Global fuel (main emitter) ----
     bool  fuelEnabled    = true;
     bool  fuelBlowAway   = true;
-    bool  fuelInfinite   = false;
+    bool  fuelInfinite   = true;
     float fuelMax        = 20.0f;
     float fuel           = 20.0f;
     float fuelBurnRate   = 1.0f;
