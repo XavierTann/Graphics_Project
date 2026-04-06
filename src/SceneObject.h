@@ -19,6 +19,7 @@ public:
     float disturbRadius = 0.8f;
     float disturbStrength = 2.0f;
 
+
     // --- Burning state ---
     float burnability = 0.7f;
     float fuelMax = 8.0f;
@@ -28,16 +29,9 @@ public:
     float ash = 0.0f;          // 0 = fresh, 1 = fully ashed
 
     // --- Internal ---
-    float fireEmitAcc = 0.0f;          // fractional particle spawn accumulator
+    float fireEmitAcc = 0.0f;
 
-    // Update burning simulation for one frame.
-    // Returns the number of fire particles that should be spawned this frame
-    // (caller is responsible for actually calling flames.spawnAt / smoke.spawnAt).
-    // 'intensity'    – global fire intensity [0,1]
-    // 'mainOrigin'   – position of the main emitter (for proximity ignition)
-    // 'mainRadius'   – radius of the main emitter
-    // 'others'       – other scene objects (for spread ignition)
-    // 'dt'           – delta time
+
     int update(float dt,
         float intensity,
         const glm::vec3& mainOrigin,

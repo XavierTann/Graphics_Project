@@ -73,6 +73,10 @@ private:
     GLuint pointVAO_ = 0;
     GLuint pointVBO_ = 0;
 
+    //grid
+    GLuint axisVAO_ = 0;
+    GLuint axisVBO_ = 0;
+
     // Lazily-compiled helper shaders (created once on first draw call)
     GLuint gridShader_ = 0;
     GLuint lineShader_ = 0;

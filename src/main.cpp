@@ -208,6 +208,16 @@ static void renderFrame(float dt, float now)
     const glm::vec3& right = camera.getBillboardRight();
     const glm::vec3& up = camera.getBillboardUp();
 
+    // Build ray from mouse position
+    auto unproject = [&](glm::vec2 ndc) -> glm::vec3 {
+        glm::vec4 clip(ndc.x, ndc.y, -1.0f, 1.0f);
+        glm::vec4 eye = glm::inverse(proj) * clip;
+        eye.z = -1.0f; eye.w = 0.0f;
+        glm::vec3 world = glm::normalize(glm::vec3(glm::inverse(view) * eye));
+        return world;
+        };
+
+
     //draw the floor grid and the origin point
     renderer.drawGrid(view, proj);
     renderer.drawOriginPoint(view, proj, scene.emitter.origin);
@@ -237,24 +247,29 @@ static void renderFrame(float dt, float now)
 /***********************   Keyboard Input   ***************************/
 /***********************************************************************/
 
-// Handle continuous keyboard input
 static void processKeyboard()
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    const float spd = 2.5f * 0.016f;
-	//arrow keys to move it vertically, Z/X to zoom in/out
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) camera.target.y += spd;
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) camera.target.y -= spd;
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) camera.radius -= spd;
-    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) camera.radius += spd;
-    camera.radius = std::clamp(camera.radius, 0.5f, 20.0f);
+    // Simulation
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) scene.reset();
 
+    // Config
     if (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS)
         saveConfig("config.txt", scene.emitter, scene.globals);
     if (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS)
         loadConfig("config.txt", scene.emitter, scene.globals);
+
+    int sel = scene.selectedObjectIndex;
+    if (sel >= 0 && sel < (int)scene.objects.size()) {
+        const float spd = 1.0f * 0.016f;
+        SceneObject& obj = scene.objects[sel];
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) obj.pos.z -= spd;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) obj.pos.z += spd;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) obj.pos.x -= spd;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) obj.pos.x += spd;
+    }
 }
 
 /***********************************************************************/
@@ -338,8 +353,6 @@ static void cb_mouseButton(GLFWwindow* win, int button, int action, int mods)
 
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
-            lastMouseX = (float)xpos;
-            lastMouseY = (float)ypos;
             tryPickObject((float)xpos, (float)ypos);
             if (!isObjectDragging)
                 camera.onMouseButton(button, action, (float)xpos, (float)ypos);
@@ -350,9 +363,11 @@ static void cb_mouseButton(GLFWwindow* win, int button, int action, int mods)
             camera.onMouseButton(button, action, (float)xpos, (float)ypos);
         }
     }
+
     if (button == GLFW_MOUSE_BUTTON_MIDDLE)
         camera.onMouseButton(button, action, (float)xpos, (float)ypos);
 }
+
 
 static void cb_cursorPos(GLFWwindow*, double xpos, double ypos)
 {

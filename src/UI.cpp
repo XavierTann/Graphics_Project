@@ -130,9 +130,34 @@ void UI::draw(const ImGuiIO& io)
     wantLoadConfig = false;
     wantRestart = false;
 
+    const glm::mat4& vp = camera_->getViewProj();
+    drawAxisLabels(vp, io.DisplaySize.x, io.DisplaySize.y);
+
     drawObjectsPanel();
     drawControlsPanel(io);
 }
+void UI::drawAxisLabels(const glm::mat4& viewProj, float winW, float winH)
+{
+    // Project a world position to screen
+    auto project = [&](glm::vec3 wp) -> ImVec2 {
+        glm::vec4 c = viewProj * glm::vec4(wp, 1.0f);
+        if (c.w <= 0.0f) return { -9999, -9999 };
+        glm::vec3 n = glm::vec3(c) / c.w;
+        return { (n.x * 0.5f + 0.5f) * winW,
+                 (1.0f - (n.y * 0.5f + 0.5f)) * winH };
+        };
+
+    ImDrawList* dl = ImGui::GetBackgroundDrawList();
+
+    // +X label (D key — red)
+    ImVec2 px = project({ 2.7f, 0.01f, 0.0f });
+    dl->AddText(px, IM_COL32(220, 60, 60, 220), "+X  (D)");
+
+    // +Z label (S key — blue)
+    ImVec2 pz = project({ 0.0f, 0.01f, 2.7f });
+    dl->AddText(pz, IM_COL32(70, 130, 220, 220), "+Z  (S)");
+}
+
 
 void UI::drawObjectsPanel()
 {
@@ -142,95 +167,168 @@ void UI::drawObjectsPanel()
     ImVec2 winSize = vp->WorkSize;
 
     ImGui::SetNextWindowPos({ winPos.x + PAD, winPos.y + PAD }, ImGuiCond_Always);
-    float pw = std::min(360.0f, std::max(240.0f, winSize.x * 0.26f));
+    float pw = std::min(340.0f, std::max(260.0f, winSize.x * 0.24f));
     float ph = std::max(120.0f, winSize.y - 2.0f * PAD);
     ImGui::SetNextWindowSize({ pw, ph }, ImGuiCond_Always);
-
-    ImGui::Begin("Scene & Assets", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::Begin("Scene & Assets", NULL,
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     static const std::vector<std::string> empty;
     const auto& available = scene_->availableMeshNames
-        ? *scene_->availableMeshNames
-        : empty;
+        ? *scene_->availableMeshNames : empty;
+    auto& objects = scene_->objects;
+    int& sel = scene_->selectedObjectIndex
+    drawSectionHeader("Asset library");
 
-    drawSectionHeader("Asset Library", "Meshes in ./data are discovered automatically.");
-    ImGui::Text("%d mesh asset%s available", (int)available.size(), available.size() == 1 ? "" : "s");
-    ImGui::Spacing();
-
-    if (ImGui::BeginChild("asset_library", ImVec2(0.0f, 220.0f), true)) {
+    if (ImGui::BeginChild("asset_lib", ImVec2(0.0f, 100.0f), true)) {
         if (available.empty()) {
-            ImGui::TextWrapped("No .glb assets were found in the data folder.");
-        } else {
+            ImGui::TextDisabled("No .glb files found in /data");
+        }
+        else {
             for (int i = 0; i < (int)available.size(); ++i) {
-                if (ImGui::Selectable(available[i].c_str(), selectedMeshIndex_ == i, ImGuiSelectableFlags_AllowDoubleClick))
+                if (ImGui::Selectable(available[i].c_str(), selectedMeshIndex_ == i))
                     selectedMeshIndex_ = i;
             }
         }
     }
     ImGui::EndChild();
 
-    if (selectedMeshIndex_ >= 0 && selectedMeshIndex_ < (int)available.size()) {
-        ImGui::Spacing();
-        if (ImGui::Button("Add Selected Mesh", ImVec2(-1.0f, 0.0f))) {
-            SceneObject obj;
-            obj.meshFile = available[selectedMeshIndex_];
-            obj.pos = scene_->emitter.origin;
-            obj.pos.y = 0.0f;
-            scene_->objects.push_back(obj);
-            scene_->selectedObjectIndex = (int)scene_->objects.size() - 1;
-        }
-    }
-
     ImGui::Spacing();
-    drawSectionHeader("Placed Objects");
+    bool canAdd = selectedMeshIndex_ >= 0
+        && selectedMeshIndex_ < (int)available.size();
+    if (!canAdd) ImGui::BeginDisabled();
+    if (ImGui::Button("Add to scene", ImVec2(-1.0f, 0.0f))) {
+        SceneObject obj;
+        obj.meshFile = available[selectedMeshIndex_];
+        obj.pos = scene_->emitter.origin;
+        obj.pos.y = 0.0f;
+        objects.push_back(obj);
+        sel = (int)objects.size() - 1;
+    }
+    if (!canAdd) ImGui::EndDisabled();
+    ImGui::Spacing();
+    drawSectionHeader("Placed objects");
 
-    auto& objects = scene_->objects;
-
-    if (ImGui::BeginChild("scene_objects", ImVec2(0.0f, 180.0f), true)) {
+    if (ImGui::BeginChild("placed_objs", ImVec2(0.0f, 120.0f), true)) {
         if (objects.empty()) {
-            ImGui::TextWrapped("No objects have been placed in the scene yet.");
-        } else {
+            ImGui::TextDisabled("No objects in scene");
+        }
+        else {
             for (int i = 0; i < (int)objects.size(); ++i) {
-                std::string label = std::to_string(i + 1) + ". " + objects[i].meshFile;
-                if (ImGui::Selectable(label.c_str(), scene_->selectedObjectIndex == i))
-                    scene_->selectedObjectIndex = i;
+                bool isSel = (sel == i);
+
+                // Row label — selectable spans most of the width
+                std::string rowLabel = std::to_string(i + 1)
+                    + ".  " + objects[i].meshFile + "##r" + std::to_string(i);
+                float removeW = ImGui::CalcTextSize("x").x
+                    + ImGui::GetStyle().FramePadding.x * 2.0f + 4.0f;
+                float rowW = ImGui::GetContentRegionAvail().x - removeW
+                    - ImGui::GetStyle().ItemSpacing.x;
+
+                if (ImGui::Selectable(rowLabel.c_str(), isSel,
+                    ImGuiSelectableFlags_None, ImVec2(rowW, 0.0f)))
+                    sel = i;
+
+                // Inline remove button
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Button,
+                    ImVec4(0.45f, 0.12f, 0.08f, 0.70f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                    ImVec4(0.70f, 0.15f, 0.10f, 1.00f));
+                std::string xId = "x##x" + std::to_string(i);
+                if (ImGui::SmallButton(xId.c_str())) {
+                    objects.erase(objects.begin() + i);
+                    if (sel >= (int)objects.size())
+                        sel = (int)objects.size() - 1;
+                    ImGui::PopStyleColor(2);
+                    break;
+                }
+                ImGui::PopStyleColor(2);
             }
         }
     }
     ImGui::EndChild();
 
-    int& sel = scene_->selectedObjectIndex;
     if (sel >= 0 && sel < (int)objects.size()) {
-        SceneObject& obj = objects[sel];
         ImGui::Spacing();
-        drawSectionHeader("Selected Object", obj.meshFile.c_str());
-
-        if (ImGui::BeginChild("selected_object", ImVec2(0.0f, 0.0f), true)) {
-            ImGui::DragFloat3("Position", (float*)&obj.pos, 0.02f);
-            ImGui::Spacing();
-            ImGui::TextUnformatted("Combustion");
-            ImGui::SliderFloat("Burnability", &obj.burnability, 0.0f, 1.0f);
-            ImGui::SliderFloat("Fuel", &obj.fuel, 0.0f, obj.fuelMax);
-            ImGui::SliderFloat("Fuel Max", &obj.fuelMax, 0.1f, 50.0f);
-            if (obj.fuel > obj.fuelMax) obj.fuel = obj.fuelMax;
-            ImGui::SliderFloat("Burn Rate", &obj.burnRate, 0.0f, 10.0f);
-
-            ImGui::Spacing();
-            ImGui::TextUnformatted("Particle Influence");
-            ImGui::SliderFloat("Disturb Radius", &obj.disturbRadius, 0.0f, 10.0f);
-            ImGui::SliderFloat("Disturb Strength", &obj.disturbStrength, 0.0f, 20.0f);
-
-            ImGui::Spacing();
-            if (ImGui::Button("Remove Object", ImVec2(-1.0f, 0.0f))) {
-                objects.erase(objects.begin() + sel);
-                if (sel >= (int)objects.size()) sel = (int)objects.size() - 1;
-            }
-        }
-        ImGui::EndChild();
+        const auto& p = objects[sel].pos;
+        ImGui::TextDisabled("%s  —  %.2f  %.2f  %.2f",
+            objects[sel].meshFile.c_str(), p.x, p.y, p.z);
+        ImGui::TextDisabled("LMB drag or WASD to move");
     }
+    ImGui::Spacing();
+    drawSectionHeader("Controls");
+
+    auto key = [](const char* label, bool active) {
+        if (active) {
+            ImGui::PushStyleColor(ImGuiCol_Button,
+                ImVec4(0.92f, 0.51f, 0.20f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                ImVec4(0.05f, 0.03f, 0.02f, 1.0f));
+        }
+        else {
+            ImGui::PushStyleColor(ImGuiCol_Button,
+                ImVec4(0.18f, 0.11f, 0.08f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                ImGui::GetStyleColorVec4(ImGuiCol_Text));
+        }
+        ImGui::SmallButton(label);
+        ImGui::PopStyleColor(2);
+        };
+
+    bool lmb = ImGui::IsMouseDown(0);
+    bool rmb = ImGui::IsMouseDown(1);
+    bool mmb = ImGui::IsMouseDown(2);
+    bool wKey = ImGui::IsKeyDown(ImGuiKey_W);
+    bool aKey = ImGui::IsKeyDown(ImGuiKey_A);
+    bool sKey = ImGui::IsKeyDown(ImGuiKey_S);
+    bool dKey = ImGui::IsKeyDown(ImGuiKey_D);
+    bool rKey = ImGui::IsKeyDown(ImGuiKey_R);
+    bool f5 = ImGui::IsKeyDown(ImGuiKey_F5);
+    bool f9 = ImGui::IsKeyDown(ImGuiKey_F9);
+
+    if (ImGui::BeginChild("controls_ref", ImVec2(0.0f, 0.0f), true)) {
+
+        ImGui::TextDisabled("camera");
+        key("LMB", lmb); ImGui::SameLine();
+        ImGui::TextUnformatted("Drag obj / orbit");
+
+        key("RMB", rmb); ImGui::SameLine();
+        ImGui::TextUnformatted("Orbit camera");
+
+        key("MMB", mmb); ImGui::SameLine();
+        ImGui::TextUnformatted("Pan camera");
+
+        ImGui::TextDisabled("Scroll  —  zoom");
+
+        ImGui::Spacing();
+        bool hasObj = sel >= 0 && sel < (int)objects.size();
+        ImGui::TextDisabled("selected object");
+        if (!hasObj) ImGui::BeginDisabled();
+        key("W", wKey); ImGui::SameLine();
+        key("A", aKey); ImGui::SameLine();
+        key("S", sKey); ImGui::SameLine();
+        key("D", dKey); ImGui::SameLine();
+        ImGui::TextUnformatted("Move XZ");
+        if (!hasObj) ImGui::EndDisabled();
+
+        ImGui::Spacing();
+        ImGui::TextDisabled("scene");
+        key("R", rKey); ImGui::SameLine();
+        ImGui::TextUnformatted("Restart");
+
+        key("F5", f5); ImGui::SameLine();
+        ImGui::TextUnformatted("Save config");
+
+        key("F9", f9); ImGui::SameLine();
+        ImGui::TextUnformatted("Load config");
+    }
+    ImGui::EndChild();
 
     ImGui::End();
 }
+
+
 
 
 void UI::drawControlsPanel(const ImGuiIO& io)
@@ -356,3 +454,4 @@ void UI::drawControlsPanel(const ImGuiIO& io)
 
     ImGui::End();
 }
+

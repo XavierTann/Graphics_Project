@@ -47,6 +47,20 @@ void Renderer::init()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
 
+    // ---- Axis lines (+X red, +Z blue) ----
+    float axisVerts[] = {
+        0.0f, 0.01f, 0.0f,   2.5f, 0.01f, 0.0f,
+        0.0f, 0.01f, 0.0f,   0.0f, 0.01f, 2.5f,
+    };
+    glGenVertexArrays(1, &axisVAO_);
+    glGenBuffers(1, &axisVBO_);
+    glBindVertexArray(axisVAO_);
+    glBindBuffer(GL_ARRAY_BUFFER, axisVBO_);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(axisVerts), axisVerts, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+
     // ---- Origin point (1 vertex, dynamic) ----
     glGenVertexArrays(1, &pointVAO_);
     glGenBuffers(1, &pointVBO_);
@@ -65,6 +79,8 @@ void Renderer::shutdown()
     if (gridVBO_) { glDeleteBuffers(1, &gridVBO_);        gridVBO_ = 0; }
     if (windVAO_) { glDeleteVertexArrays(1, &windVAO_);  windVAO_ = 0; }
     if (windVBO_) { glDeleteBuffers(1, &windVBO_);        windVBO_ = 0; }
+    if (axisVAO_) { glDeleteVertexArrays(1, &axisVAO_); axisVAO_ = 0; }
+    if (axisVBO_) { glDeleteBuffers(1, &axisVBO_);      axisVBO_ = 0; }
     if (pointVAO_) { glDeleteVertexArrays(1, &pointVAO_); pointVAO_ = 0; }
     if (pointVBO_) { glDeleteBuffers(1, &pointVBO_);       pointVBO_ = 0; }
     if (gridShader_) { glDeleteProgram(gridShader_);  gridShader_ = 0; }
@@ -94,6 +110,8 @@ GLuint Renderer::compileSimpleShader(const char* vs, const char* fs)
     return p;
 }
 
+
+
 void Renderer::ensureGridShader()
 {
     if (gridShader_) return;
@@ -108,7 +126,6 @@ void Renderer::ensureGridShader()
         "void main(){ FragColor = vec4(0.0,0.5,0.0,0.5); }\n";
     gridShader_ = compileSimpleShader(vs, fs);
 }
-
 void Renderer::ensureLineShader()
 {
     if (lineShader_) return;
@@ -119,10 +136,12 @@ void Renderer::ensureLineShader()
         "void main(){ gl_Position = MVP * vec4(aPos,1.0); }\n";
     const char* fs =
         "#version 330\n"
+        "uniform vec4 uColor;\n"
         "out vec4 FragColor;\n"
-        "void main(){ FragColor = vec4(0.0,1.0,1.0,1.0); }\n"; // cyan
+        "void main(){ FragColor = uColor; }\n";
     lineShader_ = compileSimpleShader(vs, fs);
 }
+
 
 void Renderer::ensurePointShader()
 {
@@ -171,12 +190,29 @@ void Renderer::ensureMeshShader()
 void Renderer::drawGrid(const glm::mat4& view, const glm::mat4& proj)
 {
     ensureGridShader();
+    ensureLineShader();
     glEnable(GL_BLEND);
-    glUseProgram(gridShader_);
     glm::mat4 MVP = proj * view;
+
+    // Grid
+    glUseProgram(gridShader_);
     glUniformMatrix4fv(glGetUniformLocation(gridShader_, "MVP"), 1, GL_FALSE, &MVP[0][0]);
     glBindVertexArray(gridVAO_);
     glDrawArrays(GL_LINES, 0, gridVertexCount_);
+
+    // Axis lines — drawn slightly above grid (y=0.01) to avoid z-fighting
+    glLineWidth(2.5f);
+    glUseProgram(lineShader_);
+    glUniformMatrix4fv(glGetUniformLocation(lineShader_, "MVP"), 1, GL_FALSE, &MVP[0][0]);
+    int locCol = glGetUniformLocation(lineShader_, "uColor");
+
+    glBindVertexArray(axisVAO_);
+    glUniform4f(locCol, 0.85f, 0.18f, 0.18f, 1.0f); // red  = +X (D)
+    glDrawArrays(GL_LINES, 0, 2);
+    glUniform4f(locCol, 0.22f, 0.48f, 0.90f, 1.0f); // blue = +Z (S)
+    glDrawArrays(GL_LINES, 2, 2);
+    glLineWidth(1.0f);
+
     glBindVertexArray(0);
 }
 
@@ -203,15 +239,14 @@ void Renderer::drawWindArrow(const glm::mat4& view, const glm::mat4& proj,
 {
     if (glm::length(windVec) < 0.01f) return;
     ensureLineShader();
-
     glm::vec3 end = origin + windVec * 2.0f;
     float lines[6] = { origin.x, origin.y, origin.z, end.x, end.y, end.z };
     glBindBuffer(GL_ARRAY_BUFFER, windVBO_);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(lines), lines);
-
     glUseProgram(lineShader_);
     glm::mat4 MVP = proj * view;
     glUniformMatrix4fv(glGetUniformLocation(lineShader_, "MVP"), 1, GL_FALSE, &MVP[0][0]);
+    glUniform4f(glGetUniformLocation(lineShader_, "uColor"), 0.0f, 1.0f, 1.0f, 1.0f);
     glBindVertexArray(windVAO_);
     glDrawArrays(GL_LINES, 0, 2);
     glBindVertexArray(0);
