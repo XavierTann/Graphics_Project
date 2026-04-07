@@ -199,6 +199,7 @@ void UI::drawObjectsPanel()
         obj.meshFile = available[selectedMeshIndex_];
         obj.pos = scene_->emitter.origin;
         obj.pos.y = 0.0f;
+        if (obj.pos.z < 0.5f) obj.pos.z = 0.5f;
         objects.push_back(obj);
         sel = (int)objects.size() - 1;
     }

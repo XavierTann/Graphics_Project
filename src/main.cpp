@@ -254,12 +254,14 @@ static void processKeyboard()
 
     int sel = scene.selectedObjectIndex;
     if (sel >= 0 && sel < (int)scene.objects.size()) {
-        const float spd = 1.0f * 0.016f;
+        const float spd = 1.6f * 0.016f;
         SceneObject& obj = scene.objects[sel];
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) obj.pos.z -= spd;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) obj.pos.z += spd;
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) obj.pos.x -= spd;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) obj.pos.x += spd;
+
+        if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
     }
 }
 
@@ -314,6 +316,7 @@ static void handleObjectDrag(double xpos, double ypos)
 			glm::vec3 hit = rayO + rayD * t;
 			obj.pos.x = hit.x;
 			obj.pos.z = hit.z;
+			if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
 		}
 	}
 }

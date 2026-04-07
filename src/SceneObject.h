@@ -27,9 +27,17 @@ public:
     float burnRate = 0.6f;
     bool  burning = false;
     float ash = 0.0f;          // 0 = fresh, 1 = fully ashed
+    float alpha = 1.0f;
 
     // --- Internal ---
     float fireEmitAcc = 0.0f;
+    float burnTime = 0.0f;
+    float fadeProgress = 0.0f;
+    bool  ignitionSet = false;
+    glm::vec3 ignitionLocal = glm::vec3(0.0f);
+
+    bool isDead() const { return alpha <= 0.001f; }
+    float burnFront(float intensity) const;
 
 
     int update(float dt,

@@ -220,8 +220,9 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     // --- Update scene objects, collect disturbers ---
     std::vector<Disturber> disturbers;
     disturbers.reserve(objects.size());
-    for (int i = 0; i < (int)objects.size(); ++i) {
+    for (int i = 0; i < (int)objects.size(); ) {
         SceneObject& obj = objects[i];
+        if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
         int spawnCount = obj.update(dt, intens,
             emitter.origin, emitter.radius,
             objects, i);
@@ -233,6 +234,12 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
             glm::vec3 local;
             float seed = time * 13.1f + (float)i * 97.3f + (float)k * 41.7f;
             if (sampleSurfacePoint(m, seed, local)) {
+                float front = obj.burnFront(intens);
+                glm::vec3 fromIgnition = local - obj.ignitionLocal;
+                float dist = glm::length(fromIgnition);
+                float allow = std::clamp(front * 1.35f, 0.0f, 1.0f);
+                if (dist > allow) continue;
+
                 spawnPos = obj.pos + local * obj.markerSize;
                 glm::vec3 jitter(
                     rand01(seed + 9.1f) - 0.5f,
@@ -241,6 +248,7 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
                 float jitterScale = 0.06f * (obj.markerSize > 0.05f ? obj.markerSize : 0.05f);
                 spawnPos += jitter * jitterScale;
                 if (spawnPos.y < 0.0f) spawnPos.y = 0.0f;
+                if (spawnPos.z < 0.0f) spawnPos.z = 0.0f;
             }
             else {
                 int denom = (spawnCount > 0) ? spawnCount : 1;
@@ -251,6 +259,7 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
                     0.0f,
                     std::sin(angle) * r
                 );
+                if (spawnPos.z < 0.0f) spawnPos.z = 0.0f;
             }
             float spd = fe.initialSpeedMax * (1.0f - obj.ash);
             if (spd < 0.05f) spd = 0.05f;
@@ -264,6 +273,15 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
             d.strength = obj.disturbStrength * (1.0f - obj.ash) * (obj.fuel / obj.fuelMax);
             disturbers.push_back(d);
         }
+
+        if (obj.isDead()) {
+            objects.erase(objects.begin() + i);
+            if (selectedObjectIndex == i) selectedObjectIndex = -1;
+            else if (selectedObjectIndex > i) selectedObjectIndex--;
+            continue;
+        }
+        if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
+        ++i;
     }
 
     flames.setDisturbers(disturbers);

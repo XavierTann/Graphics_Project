@@ -268,7 +268,8 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
     int locCol = glGetUniformLocation(meshShader_, "uColor");
     int locUseTex = glGetUniformLocation(meshShader_, "uUseTex");
     int locTex = glGetUniformLocation(meshShader_, "uTex");
-    glDisable(GL_BLEND);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glActiveTexture(GL_TEXTURE0);
     if (locTex >= 0) glUniform1i(locTex, 0);
 
@@ -319,6 +320,7 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
             col.r *= flicker;
             col.g *= flicker * 0.85f;
         }
+        col.a *= std::clamp(obj.alpha, 0.0f, 1.0f);
 
         glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);
         glUniform4fv(locCol, 1, &col[0]);
