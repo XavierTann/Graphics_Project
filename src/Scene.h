@@ -4,6 +4,8 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+class MeshLoader;
+
 // Scene owns all simulation state: particle systems, scene objects,
 // emitter/global settings, fuel, wind, and tornado parameters.
 class Scene {
@@ -49,6 +51,7 @@ public:
     // Set by App::initSubsystems() after Renderer::init() runs.
     // UI reads this to populate the file browser without depending on Renderer.
     const std::vector<std::string>* availableMeshNames = nullptr;
+    MeshLoader* meshLoader = nullptr;
 
     // ---- Particle systems (public so Renderer can read instance data) ----
     ParticleSystem flames;

@@ -51,12 +51,19 @@ int SceneObject::update(float dt,
     ash = std::clamp(1.0f - (fuel / fuelMax), 0.0f, 1.0f);
 
     // --- Accumulate particle spawn ---
-    float emitRate = (15.0f + 35.0f * burnability) * (0.25f + intensity);
+    float sizeFactor = markerSize / 0.5f;
+    if (sizeFactor < 0.25f) sizeFactor = 0.25f;
+    float areaFactor = sizeFactor * sizeFactor;
+    areaFactor = std::clamp(areaFactor, 0.5f, 10.0f);
+
+    float emitRate = (15.0f + 35.0f * burnability) * (12.0f + intensity) * areaFactor;
     fireEmitAcc += dt * emitRate;
     int spawnNow = (int)fireEmitAcc;
     if (spawnNow > 0) {
         fireEmitAcc -= (float)spawnNow;
-        spawnNow = std::min(spawnNow, 12);
+        int maxPerFrame = (int)(12.0f * areaFactor);
+        maxPerFrame = std::clamp(maxPerFrame, 12, 120);
+        spawnNow = std::min(spawnNow, maxPerFrame);
     }
     return spawnNow;
 }

@@ -51,7 +51,6 @@ void ParticleSystem::spawn(int count) {
         pr.size = emitter.baseSize * (0.7f + randf(0.0f, 0.6f, s * 5.5f));
         pr.isSpark = false;
 
-        // Sparks
         if (randf(0.0f, 1.0f, s * 6.6f) > 0.9f) {
             pr.maxLife = emitter.lifetimeBase * 0.4f;
             pr.lifetime = pr.maxLife;
@@ -61,9 +60,9 @@ void ParticleSystem::spawn(int count) {
             float sparkSpeed = randf(0.8f, 1.8f, s * 7.7f);
             float angle = randf(0.0f, 6.28f, s * 8.8f);
             pr.vel = glm::vec3(
-                std::cos(angle) * sparkSpeed * emitter.radius * 4.0f,
+                std::cos(angle) * sparkSpeed * 0.6f,
                 randf(0.5f, 1.5f, s * 10.0f) * sparkSpeed,
-                std::sin(angle) * sparkSpeed * emitter.radius * 4.0f
+                std::sin(angle) * sparkSpeed * 0.6f
             );
         }
         particles.push_back(pr);
@@ -179,9 +178,13 @@ void ParticleSystem::update(float dt, float time) {
                 externalForces += (swirl + push * 0.35f) * dist.strength * falloff;
             }
 
-            p.vel += externalForces * dt;
-            if (smokeMode) {
-                p.vel *= 0.985f;
+            float forceScale = p.isSpark ? 3.5f : 1.0f;
+            p.vel += externalForces * dt * forceScale;
+
+            if (p.isSpark) {
+                p.vel.x *= 0.97f;
+                p.vel.z *= 0.97f;
+                p.vel.y -= 2.8f * dt;
             }
             else {
                 float smokePhase = std::clamp((t - 0.45f) / 0.55f, 0.0f, 1.0f);
@@ -197,6 +200,14 @@ void ParticleSystem::update(float dt, float time) {
                 p.vel.x *= 0.99f;
                 p.vel.z *= 0.99f;
             }
+
+
+
+            p.vel += externalForces * dt;
+            if (smokeMode) {
+                p.vel *= 0.985f;
+            }
+  
         }
 
         p.pos += p.vel * dt;

@@ -14,8 +14,6 @@ public:
 
     void draw(const ImGuiIO& io);
 
-    bool wantSaveConfig = false;
-    bool wantLoadConfig = false;
     bool wantRestart    = false;
 
 

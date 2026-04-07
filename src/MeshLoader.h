@@ -1,4 +1,7 @@
 #pragma once
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <string>
@@ -15,6 +18,10 @@ struct GpuMesh {
     bool   indexed    = false;
     bool   valid      = false;
     bool   textured   = false;
+    std::vector<glm::vec3> cpuPositions;
+    std::vector<unsigned int> cpuIndices;
+    std::vector<float> triCdf;
+    float triAreaSum = 0.0f;
 };
 
 //scans a data directory for mesh files, loads them on demand and caches the resulting GpuMesh objects.

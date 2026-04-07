@@ -10,7 +10,7 @@ struct Particle {
     glm::vec4 color;
     float size;
     float seed;
-    bool isSpark;
+    bool isSpark = false;
 };
 
 struct InstanceAttrib {

@@ -14,7 +14,6 @@
 
 #include "shader.h"
 #include "shaderSource.h"
-#include "Config.h"
 #include "Camera.h"
 #include "Scene.h"
 #include "Renderer.h"
@@ -123,6 +122,7 @@ int main()
 
 	//scene initialisation
 	scene.availableMeshNames = &renderer.meshLoader().availableMeshes;
+	scene.meshLoader = &renderer.meshLoader();
 	scene.init();
 
 	//camera initialisation
@@ -155,9 +155,7 @@ int main()
 
 
 		// Act on UI signals from this frame
-		if (ui.wantRestart)    scene.reset();
-		if (ui.wantSaveConfig) saveConfig("config.txt", scene.emitter, scene.globals);
-		if (ui.wantLoadConfig) loadConfig("config.txt", scene.emitter, scene.globals);
+		if (ui.wantRestart) scene.reset();
 
 		// Re-scan mesh folder
 		renderer.meshLoader().scan("data");
@@ -252,21 +250,15 @@ static void processKeyboard()
 	// Simulation
 	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) scene.reset();
 
-	// Config
-	if (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS)
-		saveConfig("config.txt", scene.emitter, scene.globals);
-	if (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS)
-		loadConfig("config.txt", scene.emitter, scene.globals);
-
-	int sel = scene.selectedObjectIndex;
-	if (sel >= 0 && sel < (int)scene.objects.size()) {
-		const float spd = 1.0f * 0.016f;
-		SceneObject& obj = scene.objects[sel];
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) obj.pos.z -= spd;
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) obj.pos.z += spd;
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) obj.pos.x -= spd;
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) obj.pos.x += spd;
-	}
+    int sel = scene.selectedObjectIndex;
+    if (sel >= 0 && sel < (int)scene.objects.size()) {
+        const float spd = 1.0f * 0.016f;
+        SceneObject& obj = scene.objects[sel];
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) obj.pos.z -= spd;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) obj.pos.z += spd;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) obj.pos.x -= spd;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) obj.pos.x += spd;
+    }
 }
 
 /***********************************************************************/

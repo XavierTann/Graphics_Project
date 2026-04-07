@@ -341,6 +341,48 @@ bool MeshLoader::buildGlb(const std::string& meshFile, GpuMesh& out)
         }
     }
 
+    out.cpuPositions.clear();
+    out.cpuPositions.reserve(verts.size());
+    for (const auto& v : verts) out.cpuPositions.push_back(glm::vec3(v.px, v.py, v.pz));
+    out.cpuIndices = indices;
+    out.triCdf.clear();
+    out.triAreaSum = 0.0f;
+    if (!out.cpuPositions.empty()) {
+        auto triArea = [&](unsigned int ia, unsigned int ib, unsigned int ic) -> float {
+            if (ia >= out.cpuPositions.size() || ib >= out.cpuPositions.size() || ic >= out.cpuPositions.size())
+                return 0.0f;
+            const glm::vec3& a = out.cpuPositions[ia];
+            const glm::vec3& b = out.cpuPositions[ib];
+            const glm::vec3& c = out.cpuPositions[ic];
+            return 0.5f * glm::length(glm::cross(b - a, c - a));
+            };
+
+        if (!out.cpuIndices.empty() && out.cpuIndices.size() >= 3) {
+            size_t triCount = out.cpuIndices.size() / 3;
+            out.triCdf.reserve(triCount);
+            for (size_t t = 0; t < triCount; ++t) {
+                unsigned int ia = out.cpuIndices[t * 3 + 0];
+                unsigned int ib = out.cpuIndices[t * 3 + 1];
+                unsigned int ic = out.cpuIndices[t * 3 + 2];
+                float a = triArea(ia, ib, ic);
+                out.triAreaSum += a;
+                out.triCdf.push_back(out.triAreaSum);
+            }
+        }
+        else if (out.cpuPositions.size() >= 3 && (out.cpuPositions.size() % 3) == 0) {
+            size_t triCount = out.cpuPositions.size() / 3;
+            out.triCdf.reserve(triCount);
+            for (size_t t = 0; t < triCount; ++t) {
+                unsigned int ia = (unsigned int)(t * 3 + 0);
+                unsigned int ib = (unsigned int)(t * 3 + 1);
+                unsigned int ic = (unsigned int)(t * 3 + 2);
+                float a = triArea(ia, ib, ic);
+                out.triAreaSum += a;
+                out.triCdf.push_back(out.triAreaSum);
+            }
+        }
+    }
+
     glGenVertexArrays(1, &out.vao);
     glGenBuffers(1, &out.vbo);
     glBindVertexArray(out.vao);

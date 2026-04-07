@@ -1,7 +1,67 @@
 #include "Scene.h"
-#include "Config.h"
+#include "MeshLoader.h"
 #include <algorithm>
 #include <cmath>
+
+static float rand01(float s)
+{
+    float x = std::sin(s * 12.9898f) * 43758.5453f;
+    return x - std::floor(x);
+}
+
+static bool sampleSurfacePoint(const GpuMesh* mesh, float seed, glm::vec3& out)
+{
+    if (!mesh) return false;
+    if (mesh->cpuPositions.size() < 3) return false;
+
+    unsigned int ia = 0, ib = 1, ic = 2;
+
+    if (!mesh->cpuIndices.empty() && mesh->cpuIndices.size() >= 3 && mesh->triAreaSum > 1e-8f
+        && mesh->triCdf.size() == (mesh->cpuIndices.size() / 3))
+    {
+        float r = rand01(seed) * mesh->triAreaSum;
+        auto it = std::lower_bound(mesh->triCdf.begin(), mesh->triCdf.end(), r);
+        size_t tri = (it == mesh->triCdf.end()) ? (mesh->triCdf.size() - 1) : (size_t)(it - mesh->triCdf.begin());
+        ia = mesh->cpuIndices[tri * 3 + 0];
+        ib = mesh->cpuIndices[tri * 3 + 1];
+        ic = mesh->cpuIndices[tri * 3 + 2];
+        if (ia >= mesh->cpuPositions.size() || ib >= mesh->cpuPositions.size() || ic >= mesh->cpuPositions.size())
+            return false;
+    }
+    else if ((mesh->cpuPositions.size() % 3) == 0) {
+        size_t triCount = mesh->cpuPositions.size() / 3;
+        size_t tri = (size_t)(rand01(seed) * (float)triCount);
+        if (tri >= triCount) tri = triCount - 1;
+        ia = (unsigned int)(tri * 3 + 0);
+        ib = (unsigned int)(tri * 3 + 1);
+        ic = (unsigned int)(tri * 3 + 2);
+    }
+    else {
+        size_t n = mesh->cpuPositions.size();
+        size_t a = (size_t)(rand01(seed + 1.1f) * (float)n);
+        size_t b = (size_t)(rand01(seed + 2.2f) * (float)n);
+        size_t c = (size_t)(rand01(seed + 3.3f) * (float)n);
+        if (a >= n) a = n - 1;
+        if (b >= n) b = n - 1;
+        if (c >= n) c = n - 1;
+        ia = (unsigned int)a;
+        ib = (unsigned int)b;
+        ic = (unsigned int)c;
+    }
+
+    const glm::vec3& a = mesh->cpuPositions[ia];
+    const glm::vec3& b = mesh->cpuPositions[ib];
+    const glm::vec3& c = mesh->cpuPositions[ic];
+
+    float r1 = rand01(seed + 4.4f);
+    float r2 = rand01(seed + 5.5f);
+    float sr1 = std::sqrt(r1);
+    float u = 1.0f - sr1;
+    float v = sr1 * (1.0f - r2);
+    float w = sr1 * r2;
+    out = a * u + b * v + c * w;
+    return true;
+}
 
 // ---------------------------------------------------------------------------
 // Init
@@ -168,14 +228,33 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
 
         // Spawn fire particles from burning objects (smoke is now integrated)
         for (int k = 0; k < spawnCount; ++k) {
-            float angle = (float)k / spawnCount * 6.28f + time;
-            float r = obj.markerSize * 0.3f * (0.5f + (float)k * 0.1f);
-            glm::vec3 spawnPos = obj.pos + glm::vec3(
-                std::cos(angle) * r,
-                0.0f,
-                std::sin(angle) * r
-            );
-            flames.spawnAt(spawnPos, std::max(0.05f, fe.initialSpeedMax * (1.0f - obj.ash)));
+            glm::vec3 spawnPos = obj.pos;
+            const GpuMesh* m = meshLoader ? meshLoader->get(obj.meshFile) : nullptr;
+            glm::vec3 local;
+            float seed = time * 13.1f + (float)i * 97.3f + (float)k * 41.7f;
+            if (sampleSurfacePoint(m, seed, local)) {
+                spawnPos = obj.pos + local * obj.markerSize;
+                glm::vec3 jitter(
+                    rand01(seed + 9.1f) - 0.5f,
+                    rand01(seed + 10.2f) - 0.5f,
+                    rand01(seed + 11.3f) - 0.5f);
+                float jitterScale = 0.06f * (obj.markerSize > 0.05f ? obj.markerSize : 0.05f);
+                spawnPos += jitter * jitterScale;
+                if (spawnPos.y < 0.0f) spawnPos.y = 0.0f;
+            }
+            else {
+                int denom = (spawnCount > 0) ? spawnCount : 1;
+                float angle = (float)k / (float)denom * 6.28f + time;
+                float r = obj.markerSize * 0.3f * (0.5f + (float)k * 0.1f);
+                spawnPos = obj.pos + glm::vec3(
+                    std::cos(angle) * r,
+                    0.0f,
+                    std::sin(angle) * r
+                );
+            }
+            float spd = fe.initialSpeedMax * (1.0f - obj.ash);
+            if (spd < 0.05f) spd = 0.05f;
+            flames.spawnAt(spawnPos, spd);
         }
 
         if (obj.burning && obj.disturbRadius > 0.01f && obj.ash < 1.0f) {
