@@ -36,6 +36,11 @@ public:
     // ---- Smoke ----
     bool smokeEnabled = true;
 
+    // ---- Lighting ----
+    glm::vec3 fireLightColor = glm::vec3(1.0f, 0.48f, 0.18f);
+    float fireLightIntensity = 2.8f;
+    float fireLightRange = 3.2f;
+
     // ---- Scene objects ----
     std::vector<SceneObject> objects;
     int selectedObjectIndex = -1;
@@ -72,6 +77,9 @@ public:
 
     // Apply a named preset to emitter/globals
     void applyPreset(const std::string& name);
+
+    glm::vec3 fireLightPosition() const;
+    float fireLightStrength() const;
 
 private:
     // Build the fueled copies of emitter/globals for this frame

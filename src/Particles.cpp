@@ -49,6 +49,7 @@ void ParticleSystem::spawn(int count) {
         pr.color = glm::vec4(1.0f, 0.9f, 0.2f, 1.0f);
         pr.seed = s;
         pr.size = emitter.baseSize * (0.7f + randf(0.0f, 0.6f, s * 5.5f));
+        pr.isSpark = false;
 
         // Sparks
         if (randf(0.0f, 1.0f, s * 6.6f) > 0.9f) {
@@ -56,6 +57,7 @@ void ParticleSystem::spawn(int count) {
             pr.lifetime = pr.maxLife;
             pr.size = emitter.baseSize * 0.3f;
             pr.color = glm::vec4(1.0f, 0.85f, 0.4f, 0.7f);
+            pr.isSpark = true;
             float sparkSpeed = randf(0.8f, 1.8f, s * 7.7f);
             float angle = randf(0.0f, 6.28f, s * 8.8f);
             pr.vel = glm::vec3(
@@ -91,6 +93,7 @@ void ParticleSystem::spawnAt(const glm::vec3& pos, float speed) {
     pr.lifetime = pr.maxLife;
     pr.size = emitter.baseSize;
     pr.seed = s;
+    pr.isSpark = false;
     particles.push_back(pr);
 }
 
@@ -181,6 +184,16 @@ void ParticleSystem::update(float dt, float time) {
                 p.vel *= 0.985f;
             }
             else {
+                float smokePhase = std::clamp((t - 0.45f) / 0.55f, 0.0f, 1.0f);
+                if (smokePhase > 0.0f) {
+                    glm::vec3 smokeCurlPos = p.pos * (params.turbFreq * 0.55f + 0.15f);
+                    smokeCurlPos.y += time * 0.18f + p.seed * 0.0015f;
+                    glm::vec3 smokeLift = params.wind * (0.25f + smokePhase * 0.45f);
+                    smokeLift.y += params.buoyancy * (0.06f + smokePhase * 0.08f);
+                    smokeLift += computeCurl(smokeCurlPos) * (params.turbAmp * (0.18f + smokePhase * 0.24f));
+                    p.vel += smokeLift * dt;
+                    p.vel *= (1.0f - smokePhase * 0.025f);
+                }
                 p.vel.x *= 0.99f;
                 p.vel.z *= 0.99f;
             }
@@ -193,24 +206,34 @@ void ParticleSystem::update(float dt, float time) {
             p.color = glm::vec4(0.35f, 0.35f, 0.35f, a * 0.35f * smokeDensity);
         }
         else {
-            float curve = 1.0f - std::pow(2.0f * t - 1.0f, 2.0f);
-            float smokeSwell = 1.0f + std::max(0.0f, (t - 0.6f) / 0.4f) * 1.2f;
-            p.size = emitter.baseSize * curve * smokeSwell;
+            float flameCurve = std::max(0.0f, 1.0f - std::pow((std::min(t, 0.62f) / 0.62f) * 2.0f - 1.0f, 2.0f));
+            float smokePhase = std::clamp((t - 0.40f) / 0.60f, 0.0f, 1.0f);
+            float puff = 0.80f + 0.35f * noise(p.pos.x * 2.5f + p.seed * 0.01f,
+                p.pos.y * 2.0f + time * 0.2f,
+                p.pos.z * 2.5f - p.seed * 0.02f);
+            p.size = emitter.baseSize * (0.28f + flameCurve * 1.35f + smokePhase * (2.1f + puff * 1.6f));
 
-            if (t < 0.25f) {
+            if (t < 0.20f) {
                 p.color = glm::mix(glm::vec4(1.f, 0.9f, 0.2f, 1.f),
                     glm::vec4(1.f, 0.4f, 0.0f, 1.f),
-                    t / 0.33f);
+                    t / 0.20f);
             }
-            else if (t < 0.70f) {
+            else if (t < 0.48f) {
                 p.color = glm::mix(glm::vec4(1.f, 0.4f, 0.0f, 1.f),
-                    glm::vec4(0.35f, 0.02f, 0.0f, 0.25f),
-                    (t - 0.33f) / 0.22f);
+                    glm::vec4(0.32f, 0.06f, 0.02f, 0.72f),
+                    (t - 0.20f) / 0.28f);
+            }
+            else if (t < 0.72f) {
+                float tt = (t - 0.48f) / 0.24f;
+                glm::vec4 warmSmoke(0.26f, 0.15f, 0.11f, 0.62f);
+                glm::vec4 coolSmoke(0.18f, 0.18f, 0.20f, 0.50f);
+                p.color = glm::mix(warmSmoke, coolSmoke, tt);
             }
             else {
-                p.color = glm::mix(glm::vec4(0.25f, 0.08f, 0.02f, 0.25f),
-                    glm::vec4(0.12f, 0.12f, 0.12f, 0.0f),
-                    (t - 0.75f) / 0.25f);
+                float tt = (t - 0.72f) / 0.28f;
+                glm::vec4 agedSmoke(0.16f, 0.16f, 0.17f, 0.42f);
+                glm::vec4 fadeSmoke(0.10f, 0.10f, 0.11f, 0.02f);
+                p.color = glm::mix(agedSmoke, fadeSmoke, tt);
             }
         }
     }
@@ -234,7 +257,7 @@ void ParticleSystem::buildFireInstanceData(std::vector<InstanceAttrib>& out,
     out.clear();
     for (const auto& p : particles) {
         float t = 1.0f - (p.lifetime / p.maxLife);
-        if (t >= 0.75f) continue;
+        if (!p.isSpark && t >= 0.62f) continue;
         if (frustumCull(p.pos, viewProj)) continue;
         out.push_back({ p.pos, p.size, p.color });
     }
@@ -245,8 +268,9 @@ void ParticleSystem::buildSmokeInstanceData(std::vector<InstanceAttrib>& out,
 {
     out.clear();
     for (const auto& p : particles) {
+        if (p.isSpark) continue;
         float t = 1.0f - (p.lifetime / p.maxLife);
-        if (t < 0.75f) continue;
+        if (t < 0.48f) continue;
         if (frustumCull(p.pos, viewProj)) continue;
         out.push_back({ p.pos, p.size, p.color });
     }

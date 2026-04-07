@@ -7,6 +7,15 @@
 #include "shader.h"
 #include "SceneObject.h"
 
+struct BillboardLighting {
+    glm::vec3 cameraPos = glm::vec3(0.0f);
+    glm::vec3 fireLightPos = glm::vec3(0.0f);
+    glm::vec3 fireLightColor = glm::vec3(1.0f, 0.5f, 0.2f);
+    float fireLightIntensity = 0.0f;
+    float fireLightRange = 1.0f;
+    float time = 0.0f;
+};
+
 // Renderer owns every draw call and all GPU-side helper state
 // (grid VAO, wind VAO, point VAO, mesh shader, billboard renderer).
 class Renderer {
@@ -23,8 +32,8 @@ public:
     void drawGrid(const glm::mat4& view, const glm::mat4& proj);
 
     // Draw a single green dot at 'pos' (emitter origin indicator).
-    void drawOriginPoint(const glm::mat4& view, const glm::mat4& proj,
-        const glm::vec3& pos);
+    void drawMarkerPoint(const glm::mat4& view, const glm::mat4& proj,
+        const glm::vec3& pos, const glm::vec4& color, float size);
 
     // Draw a cyan arrow showing wind direction.
     void drawWindArrow(const glm::mat4& view, const glm::mat4& proj,
@@ -39,19 +48,22 @@ public:
     void drawObjectBillboards(const std::vector<InstanceAttrib>& data,
         shader& smokeShader,
         const glm::mat4& proj, const glm::mat4& view,
-        const glm::vec3& camRight, const glm::vec3& camUp);
+        const glm::vec3& camRight, const glm::vec3& camUp,
+        const BillboardLighting& lighting);
 
     // Upload + draw flame billboards (additive blend).
     void drawFlames(const std::vector<InstanceAttrib>& data,
         shader& flameShader,
         const glm::mat4& proj, const glm::mat4& view,
-        const glm::vec3& camRight, const glm::vec3& camUp);
+        const glm::vec3& camRight, const glm::vec3& camUp,
+        const BillboardLighting& lighting);
 
     // Upload + draw smoke billboards (alpha blend).
     void drawSmoke(const std::vector<InstanceAttrib>& data,
         shader& smokeShader,
         const glm::mat4& proj, const glm::mat4& view,
-        const glm::vec3& camRight, const glm::vec3& camUp);
+        const glm::vec3& camRight, const glm::vec3& camUp,
+        const BillboardLighting& lighting);
 
     // Expose mesh loader so UI can call scan() / get availableMeshes
     MeshLoader& meshLoader() { return meshLoader_; }
@@ -94,5 +106,6 @@ private:
     void uploadAndDraw(const std::vector<InstanceAttrib>& data,
         shader& sh,
         const glm::mat4& proj, const glm::mat4& view,
-        const glm::vec3& camRight, const glm::vec3& camUp);
+        const glm::vec3& camRight, const glm::vec3& camUp,
+        const BillboardLighting& lighting);
 };

@@ -424,6 +424,14 @@ void UI::drawControlsPanel(const ImGuiIO& io)
             ImGui::EndTabItem();
         }
 
+        if (ImGui::BeginTabItem("Lighting")) {
+            drawSectionHeader("Fire Fill Light");
+            ImGui::ColorEdit3("Fire/Smoke Color", (float*)&scene_->fireLightColor);
+            ImGui::SliderFloat("Fire Intensity", &scene_->fireLightIntensity, 0.0f, 8.0f);
+            ImGui::SliderFloat("Fire Range", &scene_->fireLightRange, 0.5f, 8.0f);
+            ImGui::EndTabItem();
+        }
+
         if (ImGui::BeginTabItem("Fuel")) {
             ImGui::Checkbox("Enable Fuel System", &scene_->fuelEnabled);
             ImGui::Checkbox("Infinite Fuel", &scene_->fuelInfinite);
@@ -449,4 +457,3 @@ void UI::drawControlsPanel(const ImGuiIO& io)
 
     ImGui::End();
 }
-

@@ -43,6 +43,16 @@ float Scene::intensity() const
     return std::clamp(fuel / fuelMax, 0.0f, 1.0f);
 }
 
+glm::vec3 Scene::fireLightPosition() const
+{
+    return emitter.origin + glm::vec3(0.0f, 0.35f + emitter.radius * 1.2f, 0.0f);
+}
+
+float Scene::fireLightStrength() const
+{
+    return fireLightIntensity * (0.25f + 0.75f * intensity());
+}
+
 // ---------------------------------------------------------------------------
 // Presets
 // ---------------------------------------------------------------------------
@@ -163,14 +173,11 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     // --- Update scene objects, collect disturbers ---
     std::vector<Disturber> disturbers;
     disturbers.reserve(objects.size());
-    int burningCount = 0;
-
     for (int i = 0; i < (int)objects.size(); ++i) {
         SceneObject& obj = objects[i];
         int spawnCount = obj.update(dt, intens,
             emitter.origin, emitter.radius,
             objects, i);
-        if (obj.burning) ++burningCount;
 
         // Spawn fire particles from burning objects (smoke is now integrated)
         for (int k = 0; k < spawnCount; ++k) {

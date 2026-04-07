@@ -1,6 +1,7 @@
 #include "Renderer.h"
 #include "SceneObject.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include <algorithm>
 #include <vector>
 #include <cstring>
 
@@ -150,11 +151,13 @@ void Renderer::ensurePointShader()
         "#version 330\n"
         "layout(location=0) in vec3 aPos;\n"
         "uniform mat4 MVP;\n"
-        "void main(){ gl_Position = MVP * vec4(aPos,1.0); gl_PointSize=10.0; }\n";
+        "uniform float uPointSize;\n"
+        "void main(){ gl_Position = MVP * vec4(aPos,1.0); gl_PointSize=uPointSize; }\n";
     const char* fs =
         "#version 330\n"
+        "uniform vec4 uColor;\n"
         "out vec4 FragColor;\n"
-        "void main(){ FragColor = vec4(0.0,1.0,0.0,1.0); }\n"; // green
+        "void main(){ FragColor = uColor; }\n";
     pointShader_ = compileSimpleShader(vs, fs);
 }
 
@@ -216,8 +219,8 @@ void Renderer::drawGrid(const glm::mat4& view, const glm::mat4& proj)
     glBindVertexArray(0);
 }
 
-void Renderer::drawOriginPoint(const glm::mat4& view, const glm::mat4& proj,
-    const glm::vec3& pos)
+void Renderer::drawMarkerPoint(const glm::mat4& view, const glm::mat4& proj,
+    const glm::vec3& pos, const glm::vec4& color, float size)
 {
     ensurePointShader();
     float pt[3] = { pos.x, pos.y, pos.z };
@@ -228,6 +231,8 @@ void Renderer::drawOriginPoint(const glm::mat4& view, const glm::mat4& proj,
     glUseProgram(pointShader_);
     glm::mat4 MVP = proj * view;
     glUniformMatrix4fv(glGetUniformLocation(pointShader_, "MVP"), 1, GL_FALSE, &MVP[0][0]);
+    glUniform4fv(glGetUniformLocation(pointShader_, "uColor"), 1, &color[0]);
+    glUniform1f(glGetUniformLocation(pointShader_, "uPointSize"), size);
     glBindVertexArray(pointVAO_);
     glDrawArrays(GL_POINTS, 0, 1);
     glBindVertexArray(0);
@@ -342,7 +347,8 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
 void Renderer::uploadAndDraw(const std::vector<InstanceAttrib>& data,
     shader& sh,
     const glm::mat4& proj, const glm::mat4& view,
-    const glm::vec3& camRight, const glm::vec3& camUp)
+    const glm::vec3& camRight, const glm::vec3& camUp,
+    const BillboardLighting& lighting)
 {
     billboards_.uploadInstances(data);
     sh.use();
@@ -350,17 +356,24 @@ void Renderer::uploadAndDraw(const std::vector<InstanceAttrib>& data,
     glUniformMatrix4fv(glGetUniformLocation(sh.ID, "view"), 1, GL_FALSE, &view[0][0]);
     glUniform3fv(glGetUniformLocation(sh.ID, "camRight"), 1, &camRight[0]);
     glUniform3fv(glGetUniformLocation(sh.ID, "camUp"), 1, &camUp[0]);
+    glUniform3fv(glGetUniformLocation(sh.ID, "cameraPos"), 1, &lighting.cameraPos[0]);
+    glUniform3fv(glGetUniformLocation(sh.ID, "fireLightPos"), 1, &lighting.fireLightPos[0]);
+    glUniform3fv(glGetUniformLocation(sh.ID, "fireLightColor"), 1, &lighting.fireLightColor[0]);
+    glUniform1f(glGetUniformLocation(sh.ID, "fireLightIntensity"), lighting.fireLightIntensity);
+    glUniform1f(glGetUniformLocation(sh.ID, "fireLightRange"), lighting.fireLightRange);
+    glUniform1f(glGetUniformLocation(sh.ID, "uTime"), lighting.time);
 }
 
 
 void Renderer::drawObjectBillboards(const std::vector<InstanceAttrib>& data,
     shader& smokeShader,
     const glm::mat4& proj, const glm::mat4& view,
-    const glm::vec3& camRight, const glm::vec3& camUp)
+    const glm::vec3& camRight, const glm::vec3& camUp,
+    const BillboardLighting& lighting)
 {
     if (data.empty()) return;
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp);
+    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp, lighting);
     glDepthMask(GL_FALSE);
     billboards_.drawInstanced((int)data.size());
     glDepthMask(GL_TRUE);
@@ -369,12 +382,13 @@ void Renderer::drawObjectBillboards(const std::vector<InstanceAttrib>& data,
 void Renderer::drawFlames(const std::vector<InstanceAttrib>& data,
     shader& flameShader,
     const glm::mat4& proj, const glm::mat4& view,
-    const glm::vec3& camRight, const glm::vec3& camUp)
+    const glm::vec3& camRight, const glm::vec3& camUp,
+    const BillboardLighting& lighting)
 {
     if (data.empty()) return;
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive for fire glow
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     glDepthMask(GL_FALSE);
-    uploadAndDraw(data, flameShader, proj, view, camRight, camUp);
+    uploadAndDraw(data, flameShader, proj, view, camRight, camUp, lighting);
     billboards_.drawInstanced((int)data.size());
     glDepthMask(GL_TRUE);
 }
@@ -382,12 +396,20 @@ void Renderer::drawFlames(const std::vector<InstanceAttrib>& data,
 void Renderer::drawSmoke(const std::vector<InstanceAttrib>& data,
     shader& smokeShader,
     const glm::mat4& proj, const glm::mat4& view,
-    const glm::vec3& camRight, const glm::vec3& camUp)
+    const glm::vec3& camRight, const glm::vec3& camUp,
+    const BillboardLighting& lighting)
 {
     if (data.empty()) return;
+    std::vector<InstanceAttrib> sorted = data;
+    std::stable_sort(sorted.begin(), sorted.end(),
+        [&view](const InstanceAttrib& a, const InstanceAttrib& b) {
+            float az = (view * glm::vec4(a.pos, 1.0f)).z;
+            float bz = (view * glm::vec4(b.pos, 1.0f)).z;
+            return az < bz;
+        });
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
-    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp);;
-    billboards_.drawInstanced((int)data.size());
+    uploadAndDraw(sorted, smokeShader, proj, view, camRight, camUp, lighting);
+    billboards_.drawInstanced((int)sorted.size());
     glDepthMask(GL_TRUE);
 }
