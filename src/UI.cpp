@@ -216,8 +216,6 @@ void UI::drawObjectsPanel()
         else {
             for (int i = 0; i < (int)objects.size(); ++i) {
                 bool isSel = (sel == i);
-
-                // Row label — selectable spans most of the width
                 std::string rowLabel = std::to_string(i + 1)
                     + ".  " + objects[i].meshFile + "##r" + std::to_string(i);
                 float removeW = ImGui::CalcTextSize("x").x
@@ -228,8 +226,6 @@ void UI::drawObjectsPanel()
                 if (ImGui::Selectable(rowLabel.c_str(), isSel,
                     ImGuiSelectableFlags_None, ImVec2(rowW, 0.0f)))
                     sel = i;
-
-                // Inline remove button
                 ImGui::SameLine();
                 ImGui::PushStyleColor(ImGuiCol_Button,
                     ImVec4(0.45f, 0.12f, 0.08f, 0.70f));
@@ -293,9 +289,6 @@ void UI::drawObjectsPanel()
         ImGui::TextUnformatted("Drag obj / orbit");
         key("Middle Mouse", mmb); ImGui::SameLine();
         ImGui::TextUnformatted("Pan camera");
-
-        ImGui::TextDisabled("Scroll  —  zoom");
-
         ImGui::Spacing();
         bool hasObj = sel >= 0 && sel < (int)objects.size();
         ImGui::TextDisabled("selected object");
@@ -333,127 +326,152 @@ void UI::drawControlsPanel(const ImGuiIO& io)
     ImVec2 winPos = vp->WorkPos;
     ImVec2 winSize = vp->WorkSize;
 
-    ImGui::SetNextWindowPos({ winPos.x + winSize.x - PAD, winPos.y + PAD },
+    ImGui::SetNextWindowPos(
+        { winPos.x + winSize.x - PAD, winPos.y + PAD },
         ImGuiCond_Always, { 1.0f, 0.0f });
-    float pw = std::min(390.0f, std::max(260.0f, winSize.x * 0.30f));
+    float pw = std::min(380.0f, std::max(260.0f, winSize.x * 0.28f));
     float ph = std::max(120.0f, winSize.y - 2.0f * PAD);
     ImGui::SetNextWindowSize({ pw, ph }, ImGuiCond_Always);
 
-    ImGui::Begin("Ember Control Deck", NULL,
+    ImGui::Begin("Control Panel", NULL,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-
-    if (ImGui::BeginChild("overview_card", ImVec2(0.0f, 122.0f), true)) {
-        drawSectionHeader("Live Fire State", "A compact overview of the active simulation.");
-        ImGui::Text("Frame Rate: %.1f FPS", io.Framerate);
-        ImGui::SameLine();
-        ImGui::TextDisabled(scene_->smokeEnabled ? "Smoke On" : "Smoke Off");
-        drawProgressRow("Intensity", scene_->intensity(), "");
-        float fuelFrac = scene_->fuelMax > 0.0f ? scene_->fuel / scene_->fuelMax : 0.0f;
-        drawProgressRow("Fuel Reserve", scene_->fuelEnabled ? fuelFrac : 1.0f, scene_->fuelEnabled ? "" : "Disabled");
-    }
-    ImGui::EndChild();
-
-    ImGui::Spacing();
-    if (ImGui::BeginChild("quick_actions", ImVec2(0.0f, 168.0f), true)) {
-        drawSectionHeader("Quick Actions");
-
-        float buttonWidth = halfWidth();
-        if (ImGui::Button("Lighter", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Lighter");
-        ImGui::SameLine();
-        if (ImGui::Button("Campfire", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Campfire");
-        if (ImGui::Button("Wildfire", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Wildfire");
-        ImGui::SameLine();
-        if (ImGui::Button("Iris Fire", ImVec2(buttonWidth, 0.0f))) scene_->applyPreset("Iris Fire");
-
-        ImGui::Spacing();
-        if (ImGui::Button("Restart Simulation", ImVec2(-1.0f, 0.0f))) wantRestart = true;
-
-        float actionWidth = halfWidth();
-        if (ImGui::Button("Save Config", ImVec2(actionWidth, 0.0f))) wantSaveConfig = true;
-        ImGui::SameLine();
-        if (ImGui::Button("Load Config", ImVec2(actionWidth, 0.0f))) wantLoadConfig = true;
-    }
-    ImGui::EndChild();
+    drawSectionHeader("Status");
+    ImGui::Text("%.0f FPS", io.Framerate);
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+    ImGui::TextDisabled(scene_->smokeEnabled ? "Smoke on" : "Smoke off");
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+    ImGui::TextDisabled(scene_->fuelInfinite ? "Infinite fuel"
+        : (scene_->fuelEnabled ? "Fuel active" : "No fuel"));
+    float fuelFrac = scene_->fuelMax > 0.0f ? scene_->fuel / scene_->fuelMax : 0.0f;
+    drawProgressRow("Fuel Reserve", scene_->fuelEnabled ? fuelFrac : 1.0f, scene_->fuelEnabled ? "" : "Disabled");
 
     ImGui::Spacing();
-    if (ImGui::BeginTabBar("ember_tabs")) {
-        if (ImGui::BeginTabItem("Simulation")) {
-            ImGui::Checkbox("Enable Smoke Trail", &scene_->smokeEnabled);
-            ImGui::Spacing();
-            drawSectionHeader("Combustion");
+    drawSectionHeader("Presets");
+
+    float bw = (ImGui::GetContentRegionAvail().x
+        - ImGui::GetStyle().ItemSpacing.x * 3.0f) / 4.0f;
+    if (ImGui::Button("Lighter", ImVec2(bw, 0.0f))) scene_->applyPreset("Lighter");
+    ImGui::SameLine();
+    if (ImGui::Button("Campfire", ImVec2(bw, 0.0f))) scene_->applyPreset("Campfire");
+    ImGui::SameLine();
+    if (ImGui::Button("Wildfire", ImVec2(bw, 0.0f))) scene_->applyPreset("Wildfire");
+    ImGui::Spacing();
+    if (ImGui::Button("Restart simulation", ImVec2(-1.0f, 0.0f)))
+        wantRestart = true;
+
+    ImGui::Spacing();
+    if (!ImGui::BeginTabBar("ember_tabs")) { ImGui::End(); return; }
+    if (ImGui::BeginTabItem("Flame")) {
+        if (ImGui::BeginChild("tab_flame", ImVec2(0.0f, 0.0f), true)) {
+
+            ImGui::TextDisabled("behaviour");
             ImGui::SliderFloat("Buoyancy", &scene_->globals.buoyancy, 0.0f, 5.0f);
             ImGui::SliderFloat("Cooling", &scene_->globals.cooling, 0.01f, 1.0f);
+
             ImGui::Spacing();
-            drawSectionHeader("Turbulence");
+            ImGui::TextDisabled("turbulence");
             ImGui::SliderFloat("Amplitude", &scene_->globals.turbAmp, 0.0f, 2.0f);
             ImGui::SliderFloat("Frequency", &scene_->globals.turbFreq, 0.1f, 5.0f);
-            ImGui::EndTabItem();
-        }
 
-        if (ImGui::BeginTabItem("Wind")) {
-            ImGui::Checkbox("Enable Wind Field", &scene_->enableWind);
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Checkbox("Smoke trail", &scene_->smokeEnabled);
+        }
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("Wind")) {
+        if (ImGui::BeginChild("tab_wind", ImVec2(0.0f, 0.0f), true)) {
+
+            ImGui::Checkbox("Enable wind", &scene_->enableWind);
+
             if (scene_->enableWind) {
-                ImGui::Checkbox("Show Wind Arrow", &scene_->showWind);
+                ImGui::Spacing();
+                ImGui::Checkbox("Show arrow", &scene_->showWind);
                 ImGui::SliderFloat("Strength", &scene_->windStrength, 0.0f, 10.0f);
-                ImGui::SliderFloat3("Direction", (float*)&scene_->globals.wind, -1.0f, 1.0f);
-                if (ImGui::Button("Reset Wind Direction", ImVec2(-1.0f, 0.0f)))
+                ImGui::SliderFloat3("Direction",
+                    (float*)&scene_->globals.wind, -1.0f, 1.0f);
+                if (ImGui::Button("Reset direction", ImVec2(-1.0f, 0.0f)))
                     scene_->globals.wind = glm::vec3(0.0f);
 
                 ImGui::Spacing();
-                drawSectionHeader("Tornado Field");
-                ImGui::Checkbox("Enable Tornado Mode", &scene_->tornadoMode);
+                ImGui::Checkbox("Tornado mode", &scene_->tornadoMode);
                 if (scene_->tornadoMode) {
-                    ImGui::SliderFloat("Swirl Strength", &scene_->tornadoStrength, 0.0f, 20.0f);
+                    ImGui::SliderFloat("Swirl", &scene_->tornadoStrength, 0.0f, 20.0f);
                     ImGui::SliderFloat("Radius", &scene_->tornadoRadius, 0.2f, 20.0f);
                     ImGui::SliderFloat("Inflow", &scene_->tornadoInflow, 0.0f, 10.0f);
                     ImGui::SliderFloat("Updraft", &scene_->tornadoUpdraft, 0.0f, 10.0f);
                 }
             }
-            ImGui::EndTabItem();
         }
-
-        if (ImGui::BeginTabItem("Emitter")) {
-            drawSectionHeader("Source Shape");
-            ImGui::SliderFloat("Radius", &scene_->emitter.radius, 0.01f, 1.0f);
-            ImGui::SliderFloat("Base Size", &scene_->emitter.baseSize, 0.01f, 0.5f);
-            ImGui::Spacing();
-            drawSectionHeader("Particle Launch");
-            ImGui::SliderFloat("Lifetime", &scene_->emitter.lifetimeBase, 0.1f, 5.0f);
-            ImGui::SliderFloat("Min Speed", &scene_->emitter.initialSpeedMin, 0.0f, 5.0f);
-            ImGui::SliderFloat("Max Speed", &scene_->emitter.initialSpeedMax, 0.0f, 5.0f);
-            ImGui::EndTabItem();
-        }
-
-        if (ImGui::BeginTabItem("Lighting")) {
-            drawSectionHeader("Fire Fill Light");
-            ImGui::ColorEdit3("Fire/Smoke Color", (float*)&scene_->fireLightColor);
-            ImGui::SliderFloat("Fire Intensity", &scene_->fireLightIntensity, 0.0f, 8.0f);
-            ImGui::SliderFloat("Fire Range", &scene_->fireLightRange, 0.5f, 8.0f);
-            ImGui::EndTabItem();
-        }
-
-        if (ImGui::BeginTabItem("Fuel")) {
-            ImGui::Checkbox("Enable Fuel System", &scene_->fuelEnabled);
-            ImGui::Checkbox("Infinite Fuel", &scene_->fuelInfinite);
-            ImGui::Checkbox("Blow Away When Empty", &scene_->fuelBlowAway);
-            ImGui::SliderFloat("Fuel Capacity", &scene_->fuelMax, 1.0f, 200.0f);
-            if (scene_->fuelMax < 1.0f) scene_->fuelMax = 1.0f;
-            if (scene_->fuel > scene_->fuelMax) scene_->fuel = scene_->fuelMax;
-            ImGui::SliderFloat("Current Fuel", &scene_->fuel, 0.0f, scene_->fuelMax);
-            ImGui::SliderFloat("Burn Rate", &scene_->fuelBurnRate, 0.0f, 20.0f);
-            ImGui::SliderFloat("Refill Amount", &scene_->addFuelAmount, 0.0f, 50.0f);
-            if (ImGui::Button("Add Fuel Now", ImVec2(-1.0f, 0.0f))) scene_->addFuel();
-
-            float frac = scene_->fuelEnabled
-                ? (scene_->fuelMax > 0.0f ? scene_->fuel / scene_->fuelMax : 0.0f)
-                : 1.0f;
-            ImGui::Spacing();
-            drawProgressRow("Fuel Level", frac, scene_->fuelEnabled ? "" : "Disabled");
-            ImGui::EndTabItem();
-        }
-
-        ImGui::EndTabBar();
+        ImGui::EndChild();
+        ImGui::EndTabItem();
     }
 
+    // ---- Emitter ----
+    if (ImGui::BeginTabItem("Emitter")) {
+        if (ImGui::BeginChild("tab_emitter", ImVec2(0.0f, 0.0f), true)) {
+
+            ImGui::TextDisabled("shape");
+            ImGui::SliderFloat("Radius", &scene_->emitter.radius, 0.01f, 1.0f);
+            ImGui::SliderFloat("Base size", &scene_->emitter.baseSize, 0.01f, 0.5f);
+
+            ImGui::Spacing();
+            ImGui::TextDisabled("launch");
+            ImGui::SliderFloat("Lifetime", &scene_->emitter.lifetimeBase, 0.1f, 5.0f);
+            ImGui::SliderFloat("Min speed", &scene_->emitter.initialSpeedMin, 0.0f, 5.0f);
+            ImGui::SliderFloat("Max speed", &scene_->emitter.initialSpeedMax, 0.0f, 5.0f);
+        }
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("Lighting")) {
+        if (ImGui::BeginChild("tab_lighting", ImVec2(0.0f, 0.0f), true)) {
+            ImGui::TextDisabled("fire + smoke");
+            ImGui::ColorEdit3("Fire/Smoke color", (float*)&scene_->fireLightColor);
+            ImGui::SliderFloat("Intensity", &scene_->fireLightIntensity, 0.0f, 8.0f);
+            ImGui::SliderFloat("Range", &scene_->fireLightRange, 0.5f, 8.0f);
+        }
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    }
+
+    if (ImGui::BeginTabItem("Fuel")) {
+        if (ImGui::BeginChild("tab_fuel", ImVec2(0.0f, 0.0f), true)) {
+
+            ImGui::Checkbox("Infinite fuel", &scene_->fuelInfinite);
+            if (scene_->fuelInfinite) scene_->fuelEnabled = true;
+
+            if (!scene_->fuelInfinite) {
+                ImGui::Spacing();
+                ImGui::TextDisabled("capacity");
+                ImGui::SliderFloat("Max fuel", &scene_->fuelMax, 1.0f, 200.0f);
+                if (scene_->fuelMax < 1.0f) scene_->fuelMax = 1.0f;
+                if (scene_->fuel > scene_->fuelMax) scene_->fuel = scene_->fuelMax;
+
+                ImGui::SliderFloat("Burn rate", &scene_->fuelBurnRate, 0.0f, 20.0f);
+
+                ImGui::Spacing();
+                ImGui::TextDisabled("top-up");
+                ImGui::SliderFloat("Add amount", &scene_->addFuelAmount, 0.0f, 50.0f);
+                if (ImGui::Button("Add fuel now", ImVec2(-1.0f, 0.0f)))
+                    scene_->addFuel();
+                ImGui::Spacing();
+                float pct = scene_->fuelMax > 0.0f
+                    ? (scene_->fuel / scene_->fuelMax) * 100.0f : 0.0f;
+                ImGui::TextDisabled("Remaining: %.0f%%", pct);
+            }
+        }
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    }
+
+    ImGui::EndTabBar();
     ImGui::End();
 }
