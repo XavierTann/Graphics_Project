@@ -68,6 +68,12 @@ public:
     // Expose mesh loader so UI can call scan() / get availableMeshes
     MeshLoader& meshLoader() { return meshLoader_; }
 
+    void loadDecorationMesh(const std::string& path, const glm::vec3& pos, float scale);
+    void drawDecorations(const glm::mat4& view, const glm::mat4& proj);
+
+
+
+
 private:
     BillboardRenderer billboards_;
     MeshLoader        meshLoader_;
@@ -108,4 +114,11 @@ private:
         const glm::mat4& proj, const glm::mat4& view,
         const glm::vec3& camRight, const glm::vec3& camUp,
         const BillboardLighting& lighting);
+
+    struct DecorationEntry {
+        std::string   meshFile;
+        glm::vec3     pos;
+        float         scale;
+    };
+    std::vector<DecorationEntry> decorations_;
 };

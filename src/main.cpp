@@ -216,6 +216,7 @@ static void renderFrame(float dt, float now)
 
 	renderer.drawGrid(view, proj);
 	renderer.drawMarkerPoint(view, proj, scene.emitter.origin, glm::vec4(0.20f, 1.0f, 0.25f, 1.0f), 10.0f);
+	renderer.loadDecorationMesh("campfire.glb", glm::vec3(0.15f, -0.05f, 0.0f), 0.00075f);
 
 
 	// Draw wind arrow if enabled
@@ -232,6 +233,7 @@ static void renderFrame(float dt, float now)
 	// Draw smoke, flames, and scene objects (objects drawn last to appear on top of particles)
 	renderer.drawMeshes(view, proj, scene.objects);
 	renderer.drawObjectBillboards(scene.objectInstData, smokeShader, proj, view, right, up, lighting);
+	renderer.drawDecorations(view, proj);
 	renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up, lighting);
 	if (scene.smokeEnabled)
 		renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up, lighting);

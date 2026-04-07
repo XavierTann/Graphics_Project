@@ -413,3 +413,60 @@ void Renderer::drawSmoke(const std::vector<InstanceAttrib>& data,
     billboards_.drawInstanced((int)sorted.size());
     glDepthMask(GL_TRUE);
 }
+
+void Renderer::loadDecorationMesh(const std::string& path, const glm::vec3& pos, float scale)
+{
+    // meshLoader_.scan() already crawled "data/", so just register the entry.
+    // The actual GpuMesh is loaded on first get() call (lazy load via MeshLoader).
+    decorations_.push_back({ path, pos, scale });
+}
+
+void Renderer::drawDecorations(const glm::mat4& view, const glm::mat4& proj)
+{
+    if (decorations_.empty()) return;
+    ensureMeshShader();
+
+    glUseProgram(meshShader_);
+    int locMVP = glGetUniformLocation(meshShader_, "MVP");
+    int locCol = glGetUniformLocation(meshShader_, "uColor");
+    int locUseTex = glGetUniformLocation(meshShader_, "uUseTex");
+    int locTex = glGetUniformLocation(meshShader_, "uTex");
+
+    glDisable(GL_BLEND);
+    glActiveTexture(GL_TEXTURE0);
+    if (locTex >= 0) glUniform1i(locTex, 0);
+
+    for (const auto& dec : decorations_) {
+        const GpuMesh* mesh = meshLoader_.get(dec.meshFile);
+        if (!mesh || !mesh->valid) continue;
+
+        glm::mat4 model = glm::scale(
+            glm::translate(glm::mat4(1.0f), dec.pos),
+            glm::vec3(dec.scale));
+        glm::mat4 mvp = proj * view * model;
+
+        glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);
+
+        if (mesh->textured && mesh->texture) {
+            glUniform4f(locCol, 1.0f, 1.0f, 1.0f, 1.0f);
+            if (locUseTex >= 0) glUniform1i(locUseTex, 1);
+            glBindTexture(GL_TEXTURE_2D, mesh->texture);
+        }
+        else {
+            // Neutral brown tint for untextured campfire logs
+            glUniform4f(locCol, 0.55f, 0.38f, 0.22f, 1.0f);
+            if (locUseTex >= 0) glUniform1i(locUseTex, 0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+
+        glBindVertexArray(mesh->vao);
+        if (mesh->indexed)
+            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+        else
+            glDrawArrays(GL_TRIANGLES, 0, mesh->indexCount);
+    }
+
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glEnable(GL_BLEND);
+}
