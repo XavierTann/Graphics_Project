@@ -47,20 +47,14 @@ public:
     std::vector<SceneObject> objects;
     int selectedObjectIndex = -1;
 
-    // Non-owning pointer to the mesh name list inside Renderer's MeshLoader.
-    // Set by App::initSubsystems() after Renderer::init() runs.
-    // UI reads this to populate the file browser without depending on Renderer.
-    const std::vector<std::string>* availableMeshNames = nullptr;
     MeshLoader* meshLoader = nullptr;
 
     // ---- Particle systems (public so Renderer can read instance data) ----
     ParticleSystem flames;
-    ParticleSystem smokeSys;
 
     // ---- Derived instance data (filled by update, read by Renderer) ----
     std::vector<InstanceAttrib> flameInstData;
     std::vector<InstanceAttrib> smokeInstData;
-    std::vector<InstanceAttrib> objectInstData;
 
     // Call once after construction to apply default settings.
     void init();
@@ -88,5 +82,4 @@ private:
     // Build the fueled copies of emitter/globals for this frame
     EmitterSettings makeFueledEmitter(float intens) const;
     GlobalParams    makeFueledGlobals(float intens) const;
-    bool smokeWasEnabled_ = true;
 };

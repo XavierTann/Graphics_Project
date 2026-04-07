@@ -121,7 +121,6 @@ int main()
 	renderer.init();
 
 	//scene initialisation
-	scene.availableMeshNames = &renderer.meshLoader().availableMeshes;
 	scene.meshLoader = &renderer.meshLoader();
 	scene.init();
 
@@ -156,9 +155,6 @@ int main()
 
 		// Act on UI signals from this frame
 		if (ui.wantRestart) scene.reset();
-
-		// Re-scan mesh folder
-		renderer.meshLoader().scan("data");
 
 		// Update the scene and build instance data for rendering
 		renderFrame(dt, now);
@@ -232,7 +228,6 @@ static void renderFrame(float dt, float now)
 
 	// Draw smoke, flames, and scene objects (objects drawn last to appear on top of particles)
 	renderer.drawMeshes(view, proj, scene.objects);
-	renderer.drawObjectBillboards(scene.objectInstData, smokeShader, proj, view, right, up, lighting);
 	renderer.drawDecorations(view, proj);
 	renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up, lighting);
 	if (scene.smokeEnabled)

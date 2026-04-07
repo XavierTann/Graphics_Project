@@ -87,7 +87,6 @@ void Scene::init()
     flames.spawn(500);
 
     smokeEnabled = true;
-    smokeWasEnabled_ = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,16 +186,6 @@ GlobalParams Scene::makeFueledGlobals(float intens) const
 // ---------------------------------------------------------------------------
 void Scene::update(float dt, float time, const glm::mat4& viewProj)
 {
-    // --- Handle smoke toggle ---
-    if (!smokeEnabled) {
-        if (smokeWasEnabled_) smokeSys.reset();
-        smokeInstData.clear();
-        smokeWasEnabled_ = false;
-    }
-    else {
-        smokeWasEnabled_ = true;
-    }
-
     // --- Consume global fuel ---
     if (fuelEnabled) {
         if (fuelInfinite) {
@@ -343,9 +332,6 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
 void Scene::reset()
 {
     flames.reset();
-    // smokeSys.reset();        <-- remove, smokeSys unused
-    // flames.setSmoke(false);  <-- remove
-    // smokeSys.setSmoke(...);  <-- remove
     fuel = fuelMax;
     flames.spawn(500);
 }

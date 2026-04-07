@@ -122,92 +122,75 @@ glm::vec3 ParticleSystem::computeCurl(const glm::vec3& p) const {
 
 
 void ParticleSystem::update(float dt, float time) {
-    if (nsEnabled)
-        stepFluid(dt);
-
     for (auto& p : particles) {
         p.lifetime -= dt;
         if (p.lifetime <= 0.0f) continue;
 
         float t = 1.0f - (p.lifetime / p.maxLife);
+        glm::vec3 externalForces = smokeMode
+            ? params.wind * 0.6f
+            : params.wind;
 
-        if (nsEnabled) {
-            glm::vec3 gridVel = nsGrid.sampleVelocity(p.pos);
-            float blend = smokeMode ? 0.92f : 0.70f;
-            p.vel = glm::mix(p.vel, gridVel, blend);
-            float localT = nsGrid.sampleScalar(nsGrid.temperature, p.pos);
-            p.vel.z += params.buoyancy * localT * dt * 0.5f;
+        float buoyScale = smokeMode ? 0.15f : 0.5f;
+        externalForces.z += params.buoyancy * buoyScale;
+
+        glm::vec3 curlPos = p.pos * params.turbFreq;
+        curlPos.z += smokeMode ? time * 0.2f : -time * params.turbFreq;
+        externalForces += computeCurl(curlPos) *
+            (smokeMode ? params.turbAmp * 0.6f : params.turbAmp);
+
+        if (tornadoEnabled) {
+            glm::vec3 rel = p.pos - tornadoOrigin;
+            float r = std::sqrt(rel.x * rel.x + rel.y * rel.y);
+            float falloff = std::exp(-r / tornadoRadius);
+            glm::vec3 tang(0.f), inward(0.f);
+            if (r > 1e-4f) {
+                tang = glm::normalize(glm::vec3(-rel.y, rel.x, 0.f));
+                inward = -glm::normalize(glm::vec3(rel.x, rel.y, 0.f));
+            }
+            externalForces += tang * tornadoStrength * falloff;
+            externalForces += inward * tornadoInflow * falloff;
+            externalForces += glm::vec3(0.f, 0.f, tornadoUpdraft * falloff);
+        }
+
+        for (const auto& dist : disturbers) {
+            glm::vec3 rel = p.pos - dist.pos;
+            float r = glm::length(rel);
+            if (r >= dist.radius || dist.radius < 1e-4f) continue;
+            float falloff = 1.0f - r / dist.radius;
+            glm::vec3 horiz(rel.x, rel.y, 0.f);
+            float hr = glm::length(horiz);
+            if (hr < 1e-4f) continue;
+            glm::vec3 push = glm::normalize(horiz);
+            glm::vec3 swirl = glm::normalize(glm::vec3(-horiz.y, horiz.x, 0.f));
+            externalForces += (swirl + push * 0.35f) * dist.strength * falloff;
+        }
+
+        float forceScale = p.isSpark ? 3.5f : 1.0f;
+        p.vel += externalForces * dt * forceScale;
+
+        if (smokeMode) {
+            p.vel *= 0.985f;
+        }
+
+        if (p.isSpark) {
+            p.vel.x *= 0.97f;
+            p.vel.y *= 0.97f;
+            p.vel.z -= 2.8f * dt;
         }
         else {
-            glm::vec3 externalForces = smokeMode
-                ? params.wind * 0.6f
-                : params.wind;
-
-            float buoyScale = smokeMode ? 0.15f : 0.5f;
-            externalForces.z += params.buoyancy * buoyScale;
-
-            glm::vec3 curlPos = p.pos * params.turbFreq;
-            curlPos.z += smokeMode ? time * 0.2f : -time * params.turbFreq;
-            externalForces += computeCurl(curlPos) *
-                (smokeMode ? params.turbAmp * 0.6f : params.turbAmp);
-
-            if (tornadoEnabled) {
-                glm::vec3 rel = p.pos - tornadoOrigin;
-                float r = std::sqrt(rel.x * rel.x + rel.y * rel.y);
-                float falloff = std::exp(-r / tornadoRadius);
-                glm::vec3 tang(0.f), inward(0.f);
-                if (r > 1e-4f) {
-                    tang = glm::normalize(glm::vec3(-rel.y, rel.x, 0.f));
-                    inward = -glm::normalize(glm::vec3(rel.x, rel.y, 0.f));
-                }
-                externalForces += tang * tornadoStrength * falloff;
-                externalForces += inward * tornadoInflow * falloff;
-                externalForces += glm::vec3(0.f, 0.f, tornadoUpdraft * falloff);
+            float smokePhase = std::clamp((t - 0.45f) / 0.55f, 0.0f, 1.0f);
+            if (smokePhase > 0.0f) {
+                glm::vec3 smokeCurlPos = p.pos * (params.turbFreq * 0.55f + 0.15f);
+                smokeCurlPos.z += time * 0.18f + p.seed * 0.0015f;
+                glm::vec3 smokeLift = params.wind * (0.25f + smokePhase * 0.45f);
+                smokeLift.z += params.buoyancy * (0.06f + smokePhase * 0.08f);
+                smokeLift += computeCurl(smokeCurlPos) * (params.turbAmp * (0.18f + smokePhase * 0.24f));
+                p.vel += smokeLift * dt;
+                p.vel *= (1.0f - smokePhase * 0.025f);
             }
-
-            for (const auto& dist : disturbers) {
-                glm::vec3 rel = p.pos - dist.pos;
-                float r = glm::length(rel);
-                if (r >= dist.radius || dist.radius < 1e-4f) continue;
-                float falloff = 1.0f - r / dist.radius;
-                glm::vec3 horiz(rel.x, rel.y, 0.f);
-                float hr = glm::length(horiz);
-                if (hr < 1e-4f) continue;
-                glm::vec3 push = glm::normalize(horiz);
-                glm::vec3 swirl = glm::normalize(glm::vec3(-horiz.y, horiz.x, 0.f));
-                externalForces += (swirl + push * 0.35f) * dist.strength * falloff;
-            }
-
-            float forceScale = p.isSpark ? 3.5f : 1.0f;
-            p.vel += externalForces * dt * forceScale;
-
-            if (p.isSpark) {
-                p.vel.x *= 0.97f;
-                p.vel.y *= 0.97f;
-                p.vel.z -= 2.8f * dt;
-            }
-            else {
-                float smokePhase = std::clamp((t - 0.45f) / 0.55f, 0.0f, 1.0f);
-                if (smokePhase > 0.0f) {
-                    glm::vec3 smokeCurlPos = p.pos * (params.turbFreq * 0.55f + 0.15f);
-                    smokeCurlPos.z += time * 0.18f + p.seed * 0.0015f;
-                    glm::vec3 smokeLift = params.wind * (0.25f + smokePhase * 0.45f);
-                    smokeLift.z += params.buoyancy * (0.06f + smokePhase * 0.08f);
-                    smokeLift += computeCurl(smokeCurlPos) * (params.turbAmp * (0.18f + smokePhase * 0.24f));
-                    p.vel += smokeLift * dt;
-                    p.vel *= (1.0f - smokePhase * 0.025f);
-                }
-                p.vel.x *= 0.99f;
-                p.vel.y *= 0.99f;
-            }
-
-
-
-            p.vel += externalForces * dt;
-            if (smokeMode) {
-                p.vel *= 0.985f;
-            }
-  
+            p.vel.x *= 0.99f;
+            p.vel.y *= 0.99f;
         }
 
         p.pos += p.vel * dt;
@@ -290,5 +273,4 @@ void ParticleSystem::buildSmokeInstanceData(std::vector<InstanceAttrib>& out,
 void ParticleSystem::reset() {
     particles.clear();
     particles.reserve(2000);
-    if (nsEnabled) nsGrid.clear();
 }

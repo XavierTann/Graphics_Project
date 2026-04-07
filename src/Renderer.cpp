@@ -373,21 +373,6 @@ void Renderer::uploadAndDraw(const std::vector<InstanceAttrib>& data,
     glUniform1f(glGetUniformLocation(sh.ID, "uTime"), lighting.time);
 }
 
-
-void Renderer::drawObjectBillboards(const std::vector<InstanceAttrib>& data,
-    shader& smokeShader,
-    const glm::mat4& proj, const glm::mat4& view,
-    const glm::vec3& camRight, const glm::vec3& camUp,
-    const BillboardLighting& lighting)
-{
-    if (data.empty()) return;
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    uploadAndDraw(data, smokeShader, proj, view, camRight, camUp, lighting);
-    glDepthMask(GL_FALSE);
-    billboards_.drawInstanced((int)data.size());
-    glDepthMask(GL_TRUE);
-}
-
 void Renderer::drawFlames(const std::vector<InstanceAttrib>& data,
     shader& flameShader,
     const glm::mat4& proj, const glm::mat4& view,
