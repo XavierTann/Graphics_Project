@@ -200,11 +200,26 @@ void UI::drawObjectsPanel()
         obj.pos = scene_->emitter.origin;
         obj.pos.z = 0.0f;
         if (scene_->meshLoader) {
+            MeshLoader::MeshSettings tuning = scene_->meshLoader->settingsFor(obj.meshFile);
             const GpuMesh* m = scene_->meshLoader->get(obj.meshFile);
-            if (m && !m->cpuPositions.empty()) {
-                float minZ = 1e9f;
-                for (const auto& p : m->cpuPositions) minZ = std::min(minZ, p.y);
-                obj.minLocalZ = (minZ < 1e8f) ? minZ : 0.0f;
+            if (m && m->boundsValid) {
+                if (tuning.fixedScale > 0.0f) {
+                    obj.markerSize = tuning.fixedScale;
+                }
+                else {
+                    glm::vec3 ext = m->aabbMax - m->aabbMin;
+                    float maxExt = std::max(ext.x, std::max(ext.y, ext.z));
+                    if (maxExt > 1e-6f) {
+                        obj.markerSize = std::clamp(tuning.desiredMaxExtent / maxExt, 0.02f, 10.0f);
+                        obj.markerSize *= tuning.scaleMultiplier;
+                    }
+                }
+
+                bool authoredZUp = m->authoredZUp;
+                if (tuning.upMode == 1) authoredZUp = true;
+                if (tuning.upMode == 0) authoredZUp = false;
+                float minUp = authoredZUp ? m->aabbMin.z : m->aabbMin.y;
+                obj.minLocalZ = minUp;
                 obj.boundsReady = true;
                 obj.pos.z = obj.minAllowedZ();
             }

@@ -61,6 +61,25 @@ const GpuMesh* MeshLoader::get(const std::string& meshFile)
     return &cache_.find(meshFile)->second;
 }
 
+MeshLoader::MeshSettings MeshLoader::settingsFor(const std::string& meshFile) const
+{
+    MeshSettings s;
+    if (meshFile == "campfire.glb") {
+        s.desiredMaxExtent = 0.8f;
+        s.scaleMultiplier = 1.0f;
+        s.upMode = 0;
+        s.fixedScale = 0.00075f;
+        return s;
+    }
+    if (meshFile == "grass.glb") {
+        s.desiredMaxExtent = 0.8f;
+        s.scaleMultiplier = 1.0f;
+        s.upMode = 1;
+        return s;
+    }
+    return s;
+}
+
 
 // Free all GPU resources
 void MeshLoader::clear()
@@ -345,6 +364,28 @@ bool MeshLoader::buildGlb(const std::string& meshFile, GpuMesh& out)
     out.cpuPositions.reserve(verts.size());
     for (const auto& v : verts) out.cpuPositions.push_back(glm::vec3(v.px, v.py, v.pz));
     out.cpuIndices = indices;
+
+    out.boundsValid = false;
+    out.authoredZUp = false;
+    if (!out.cpuPositions.empty()) {
+        glm::vec3 mn(1e9f), mx(-1e9f);
+        for (const auto& p : out.cpuPositions) {
+            mn = glm::min(mn, p);
+            mx = glm::max(mx, p);
+        }
+        out.aabbMin = mn;
+        out.aabbMax = mx;
+        out.boundsValid = true;
+
+        glm::vec3 ext = mx - mn;
+        float maxXY = std::max(ext.x, ext.y);
+        float maxOther = std::max(maxXY, ext.z);
+        if (maxOther > 1e-6f) {
+            float ratioZ = ext.z / std::max(1e-6f, std::max(ext.x, ext.y));
+            out.authoredZUp = (ratioZ < 0.18f);
+        }
+    }
+
     out.triCdf.clear();
     out.triAreaSum = 0.0f;
     if (!out.cpuPositions.empty()) {

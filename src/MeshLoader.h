@@ -22,16 +22,29 @@ struct GpuMesh {
     std::vector<unsigned int> cpuIndices;
     std::vector<float> triCdf;
     float triAreaSum = 0.0f;
+    glm::vec3 aabbMin = glm::vec3(0.0f);
+    glm::vec3 aabbMax = glm::vec3(0.0f);
+    bool boundsValid = false;
+    bool authoredZUp = false;
 };
 
 //scans a data directory for mesh files, loads them on demand and caches the resulting GpuMesh objects.
 class MeshLoader {
 public:
+    struct MeshSettings {
+        float desiredMaxExtent = 0.8f;
+        float scaleMultiplier = 1.0f;
+        int upMode = -1;
+        float fixedScale = -1.0f;
+    };
+
     // Scan dataDir for mesh files
     void scan(const std::string& dataDir = "data");
 
     // Get a GpuMesh for the given mesh file
     const GpuMesh* get(const std::string& meshFile);
+
+    MeshSettings settingsFor(const std::string& meshFile) const;
 
     // Free all GPU resources.
     void clear();

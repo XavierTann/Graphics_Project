@@ -223,11 +223,14 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     for (int i = 0; i < (int)objects.size(); ) {
         SceneObject& obj = objects[i];
         if (!obj.boundsReady && meshLoader) {
+            MeshLoader::MeshSettings tuning = meshLoader->settingsFor(obj.meshFile);
             const GpuMesh* m = meshLoader->get(obj.meshFile);
-            if (m && !m->cpuPositions.empty()) {
-                float minZ = 1e9f;
-                for (const auto& p : m->cpuPositions) minZ = std::min(minZ, p.y);
-                obj.minLocalZ = (minZ < 1e8f) ? minZ : 0.0f;
+            if (m && m->boundsValid) {
+                bool authoredZUp = m->authoredZUp;
+                if (tuning.upMode == 1) authoredZUp = true;
+                if (tuning.upMode == 0) authoredZUp = false;
+                float minUp = authoredZUp ? m->aabbMin.z : m->aabbMin.y;
+                obj.minLocalZ = minUp;
             }
             obj.boundsReady = true;
         }
@@ -245,7 +248,13 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
             glm::vec3 local;
             float seed = time * 13.1f + (float)i * 97.3f + (float)k * 41.7f;
             if (sampleSurfacePoint(m, seed, local)) {
-                glm::vec3 localR(local.x, -local.z, local.y);
+                bool authoredZUp = m ? m->authoredZUp : false;
+                if (meshLoader) {
+                    MeshLoader::MeshSettings tuning = meshLoader->settingsFor(obj.meshFile);
+                    if (tuning.upMode == 1) authoredZUp = true;
+                    if (tuning.upMode == 0) authoredZUp = false;
+                }
+                glm::vec3 localR = authoredZUp ? local : glm::vec3(local.x, -local.z, local.y);
                 float front = obj.burnFront(intens);
                 glm::vec3 fromIgnition = localR - obj.ignitionLocal;
                 float dist = glm::length(fromIgnition);

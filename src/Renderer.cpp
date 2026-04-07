@@ -280,8 +280,14 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
         const GpuMesh* mesh = meshLoader_.get(obj.meshFile);
         if (!mesh || !mesh->valid) continue;
 
+        MeshLoader::MeshSettings tuning = meshLoader_.settingsFor(obj.meshFile);
+        bool authoredZUp = mesh->authoredZUp;
+        if (tuning.upMode == 1) authoredZUp = true;
+        if (tuning.upMode == 0) authoredZUp = false;
+
         glm::mat4 model = glm::translate(glm::mat4(1.0f), obj.pos);
-        model = model * glm::rotate(glm::mat4(1.0f), 1.57079632679f, glm::vec3(1.0f, 0.0f, 0.0f));
+        if (!authoredZUp)
+            model = model * glm::rotate(glm::mat4(1.0f), 1.57079632679f, glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(obj.markerSize));
         glm::mat4 mvp = proj * view * model;
 
@@ -446,9 +452,16 @@ void Renderer::drawDecorations(const glm::mat4& view, const glm::mat4& proj)
         const GpuMesh* mesh = meshLoader_.get(dec.meshFile);
         if (!mesh || !mesh->valid) continue;
 
+        MeshLoader::MeshSettings tuning = meshLoader_.settingsFor(dec.meshFile);
+        bool authoredZUp = mesh->authoredZUp;
+        if (tuning.upMode == 1) authoredZUp = true;
+        if (tuning.upMode == 0) authoredZUp = false;
+        float scale = dec.scale * tuning.scaleMultiplier;
+
         glm::mat4 model = glm::translate(glm::mat4(1.0f), dec.pos);
-        model = model * glm::rotate(glm::mat4(1.0f), 1.57079632679f, glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(dec.scale));
+        if (!authoredZUp)
+            model = model * glm::rotate(glm::mat4(1.0f), 1.57079632679f, glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(scale));
         glm::mat4 mvp = proj * view * model;
 
         glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);
