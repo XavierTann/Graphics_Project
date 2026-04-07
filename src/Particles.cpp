@@ -31,6 +31,10 @@ void ParticleSystem::setDisturbers(const std::vector<Disturber>& d) {
 
 
 void ParticleSystem::spawn(int count) {
+    const int maxParticles = 8000;
+    int canSpawn = maxParticles - (int)particles.size();
+    if (canSpawn <= 0) return;
+    if (count > canSpawn) count = canSpawn;
     particles.reserve(particles.size() + count);
     for (int i = 0; i < count; ++i) {
         float s = (float)(particles.size() + i);
@@ -70,6 +74,8 @@ void ParticleSystem::spawn(int count) {
 }
 
 void ParticleSystem::spawnAt(const glm::vec3& pos, float speed) {
+    const int maxParticles = 8000;
+    if ((int)particles.size() >= maxParticles) return;
     float s = pos.x + pos.y + pos.z + (float)particles.size();
     Particle pr;
     pr.pos = pos;
@@ -249,11 +255,13 @@ void ParticleSystem::buildFireInstanceData(std::vector<InstanceAttrib>& out,
     const glm::mat4& viewProj) const
 {
     out.clear();
+    const size_t maxOut = 7000;
     for (const auto& p : particles) {
         float t = 1.0f - (p.lifetime / p.maxLife);
         if (!p.isSpark && t >= 0.62f) continue;
         if (frustumCull(p.pos, viewProj)) continue;
         out.push_back({ p.pos, p.size, p.color });
+        if (out.size() >= maxOut) break;
     }
 }
 
@@ -261,12 +269,14 @@ void ParticleSystem::buildSmokeInstanceData(std::vector<InstanceAttrib>& out,
     const glm::mat4& viewProj) const
 {
     out.clear();
+    const size_t maxOut = 5000;
     for (const auto& p : particles) {
         if (p.isSpark) continue;
         float t = 1.0f - (p.lifetime / p.maxLife);
         if (t < 0.48f) continue;
         if (frustumCull(p.pos, viewProj)) continue;
         out.push_back({ p.pos, p.size, p.color });
+        if (out.size() >= maxOut) break;
     }
 }
 

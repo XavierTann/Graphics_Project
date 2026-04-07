@@ -269,14 +269,12 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
     int locCol = glGetUniformLocation(meshShader_, "uColor");
     int locUseTex = glGetUniformLocation(meshShader_, "uUseTex");
     int locTex = glGetUniformLocation(meshShader_, "uTex");
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glActiveTexture(GL_TEXTURE0);
     if (locTex >= 0) glUniform1i(locTex, 0);
 
-    for (const auto& obj : objects) {
+    auto drawOne = [&](const SceneObject& obj) {
         const GpuMesh* mesh = meshLoader_.get(obj.meshFile);
-        if (!mesh || !mesh->valid) continue;
+        if (!mesh || !mesh->valid) return;
 
         MeshLoader::MeshSettings tuning = meshLoader_.settingsFor(obj.meshFile);
         bool authoredZUp = mesh->authoredZUp;
@@ -289,61 +287,100 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
         model = glm::scale(model, glm::vec3(obj.markerSize));
         glm::mat4 mvp = proj * view * model;
 
-        glm::vec4 col;
         float ashT = obj.ash;
-
-        if (!obj.burning && ashT < 0.01f) {
-            col = mesh->textured ? glm::vec4(1.0f) : glm::vec4(0.1f, 0.8f, 0.2f, 1.0f);
-        }
-        else if (ashT < 0.15f) {
-            float t = ashT / 0.15f;
-            glm::vec4 base = mesh->textured ? glm::vec4(1.0f) : glm::vec4(0.1f, 0.8f, 0.2f, 1.0f);
-            col = glm::mix(base, glm::vec4(1.0f, 0.95f, 0.6f, 1.0f), t);
-        }
-        else if (ashT < 0.40f) {
-            float t = (ashT - 0.15f) / 0.25f;
-            col = glm::mix(glm::vec4(1.0f, 0.95f, 0.6f, 1.0f),
-                glm::vec4(1.0f, 0.35f, 0.02f, 1.0f), t);
-        }
-        else if (ashT < 0.70f) {
-            float t = (ashT - 0.40f) / 0.30f;
-            col = glm::mix(glm::vec4(1.0f, 0.35f, 0.02f, 1.0f),
-                glm::vec4(0.35f, 0.06f, 0.01f, 1.0f), t);
-        }
-        else if (ashT < 0.90f) {
-            float t = (ashT - 0.70f) / 0.20f;
-            col = glm::mix(glm::vec4(0.35f, 0.06f, 0.01f, 1.0f),
-                glm::vec4(0.18f, 0.16f, 0.14f, 1.0f), t);
-        }
-        else {
-            float t = (ashT - 0.90f) / 0.10f;
-            col = glm::mix(glm::vec4(0.18f, 0.16f, 0.14f, 1.0f),
-                glm::vec4(0.10f, 0.10f, 0.10f, 1.0f), t);
-        }
-
-        // Flicker while actively burning
-        if (obj.burning && ashT < 0.85f) {
-            float flicker = 0.92f + 0.08f * std::sin(ashT * 47.3f + obj.fuel);
-            col.r *= flicker;
-            col.g *= flicker * 0.85f;
-        }
-        col.a *= std::clamp(obj.alpha, 0.0f, 1.0f);
-
         glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);
-        glUniform4fv(locCol, 1, &col[0]);
-        if (mesh->textured && mesh->texture) {
-            if (locUseTex >= 0) glUniform1i(locUseTex, 1);
-            glBindTexture(GL_TEXTURE_2D, mesh->texture);
-        } else {
-            if (locUseTex >= 0) glUniform1i(locUseTex, 0);
-            glBindTexture(GL_TEXTURE_2D, 0);
+
+        for (const auto& part : mesh->parts) {
+            bool useTex = part.textured && part.texture;
+            glm::vec4 matBase = part.baseColorFactor;
+            if (matBase.a <= 0.0f) matBase.a = 1.0f;
+
+            glm::vec4 base = matBase;
+            if (!useTex && matBase == glm::vec4(1.0f))
+                base = glm::vec4(0.1f, 0.8f, 0.2f, 1.0f);
+
+            glm::vec4 col;
+            if (!obj.burning && ashT < 0.01f) {
+                col = base;
+            }
+            else if (ashT < 0.15f) {
+                float t = ashT / 0.15f;
+                col = glm::mix(base, glm::vec4(1.0f, 0.95f, 0.6f, 1.0f), t);
+            }
+            else if (ashT < 0.40f) {
+                float t = (ashT - 0.15f) / 0.25f;
+                col = glm::mix(glm::vec4(1.0f, 0.95f, 0.6f, 1.0f),
+                    glm::vec4(1.0f, 0.35f, 0.02f, 1.0f), t);
+            }
+            else if (ashT < 0.70f) {
+                float t = (ashT - 0.40f) / 0.30f;
+                col = glm::mix(glm::vec4(1.0f, 0.35f, 0.02f, 1.0f),
+                    glm::vec4(0.35f, 0.06f, 0.01f, 1.0f), t);
+            }
+            else if (ashT < 0.90f) {
+                float t = (ashT - 0.70f) / 0.20f;
+                col = glm::mix(glm::vec4(0.35f, 0.06f, 0.01f, 1.0f),
+                    glm::vec4(0.18f, 0.16f, 0.14f, 1.0f), t);
+            }
+            else {
+                float t = (ashT - 0.90f) / 0.10f;
+                col = glm::mix(glm::vec4(0.18f, 0.16f, 0.14f, 1.0f),
+                    glm::vec4(0.10f, 0.10f, 0.10f, 1.0f), t);
+            }
+
+            if (obj.burning && ashT < 0.85f) {
+                float flicker = 0.92f + 0.08f * std::sin(ashT * 47.3f + obj.fuel);
+                col.r *= flicker;
+                col.g *= flicker * 0.85f;
+            }
+
+            col.a *= std::clamp(obj.alpha, 0.0f, 1.0f);
+
+            glUniform4fv(locCol, 1, &col[0]);
+            if (useTex) {
+                if (locUseTex >= 0) glUniform1i(locUseTex, 1);
+                glBindTexture(GL_TEXTURE_2D, part.texture);
+            }
+            else {
+                if (locUseTex >= 0) glUniform1i(locUseTex, 0);
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+
+            glBindVertexArray(part.vao);
+            if (part.indexed)
+                glDrawElements(GL_TRIANGLES, part.indexCount, GL_UNSIGNED_INT, 0);
+            else
+                glDrawArrays(GL_TRIANGLES, 0, part.indexCount);
         }
-        glBindVertexArray(mesh->vao);
-        if (mesh->indexed)
-            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-        else
-            glDrawArrays(GL_TRIANGLES, 0, mesh->indexCount);
+        };
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    for (const auto& obj : objects) {
+        if (obj.alpha < 0.999f) continue;
+        drawOne(obj);
     }
+
+    std::vector<const SceneObject*> transparent;
+    transparent.reserve(objects.size());
+    for (const auto& obj : objects) {
+        if (obj.alpha >= 0.999f) continue;
+        transparent.push_back(&obj);
+    }
+    if (!transparent.empty()) {
+        std::stable_sort(transparent.begin(), transparent.end(),
+            [&view](const SceneObject* a, const SceneObject* b) {
+                float az = (view * glm::vec4(a->pos, 1.0f)).z;
+                float bz = (view * glm::vec4(b->pos, 1.0f)).z;
+                return az < bz;
+            });
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+        for (const auto* obj : transparent) drawOne(*obj);
+        glDepthMask(GL_TRUE);
+    }
+
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glEnable(GL_BLEND);
@@ -449,23 +486,28 @@ void Renderer::drawDecorations(const glm::mat4& view, const glm::mat4& proj)
 
         glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);
 
-        if (mesh->textured && mesh->texture) {
-            glUniform4f(locCol, 1.0f, 1.0f, 1.0f, 1.0f);
-            if (locUseTex >= 0) glUniform1i(locUseTex, 1);
-            glBindTexture(GL_TEXTURE_2D, mesh->texture);
-        }
-        else {
-            // Neutral brown tint for untextured campfire logs
-            glUniform4f(locCol, 0.55f, 0.38f, 0.22f, 1.0f);
-            if (locUseTex >= 0) glUniform1i(locUseTex, 0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
+        for (const auto& part : mesh->parts) {
+            bool useTex = part.textured && part.texture;
+            glm::vec4 col = part.baseColorFactor;
+            if (!useTex && col == glm::vec4(1.0f))
+                col = glm::vec4(0.55f, 0.38f, 0.22f, 1.0f);
 
-        glBindVertexArray(mesh->vao);
-        if (mesh->indexed)
-            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-        else
-            glDrawArrays(GL_TRIANGLES, 0, mesh->indexCount);
+            glUniform4fv(locCol, 1, &col[0]);
+            if (useTex) {
+                if (locUseTex >= 0) glUniform1i(locUseTex, 1);
+                glBindTexture(GL_TEXTURE_2D, part.texture);
+            }
+            else {
+                if (locUseTex >= 0) glUniform1i(locUseTex, 0);
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+
+            glBindVertexArray(part.vao);
+            if (part.indexed)
+                glDrawElements(GL_TRIANGLES, part.indexCount, GL_UNSIGNED_INT, 0);
+            else
+                glDrawArrays(GL_TRIANGLES, 0, part.indexCount);
+        }
     }
 
     glBindVertexArray(0);

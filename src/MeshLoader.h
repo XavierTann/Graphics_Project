@@ -9,15 +9,20 @@
 #include <unordered_map>
 
 //mesh representation on the GPU
+struct GpuSubMesh {
+    GLuint vao = 0;
+    GLuint vbo = 0;
+    GLuint ebo = 0;
+    GLuint texture = 0;
+    int indexCount = 0;
+    bool indexed = false;
+    bool textured = false;
+    glm::vec4 baseColorFactor = glm::vec4(1.0f);
+};
+
 struct GpuMesh {
-    GLuint vao        = 0;
-    GLuint vbo        = 0;
-    GLuint ebo        = 0;
-    GLuint texture    = 0;
-    int    indexCount = 0;
-    bool   indexed    = false;
     bool   valid      = false;
-    bool   textured   = false;
+    std::vector<GpuSubMesh> parts;
     std::vector<glm::vec3> cpuPositions;
     std::vector<unsigned int> cpuIndices;
     std::vector<float> triCdf;
