@@ -14,7 +14,6 @@
 
 #include "shader.h"
 #include "shaderSource.h"
-#include "Config.h"
 #include "Camera.h"
 #include "Scene.h"
 #include "Renderer.h"
@@ -156,8 +155,6 @@ int main()
 
         // Act on UI signals from this frame
         if (ui.wantRestart)    scene.reset();
-        if (ui.wantSaveConfig) saveConfig("config.txt", scene.emitter, scene.globals);
-        if (ui.wantLoadConfig) loadConfig("config.txt", scene.emitter, scene.globals);
 
         // Re-scan mesh folder
         renderer.meshLoader().scan("data");
@@ -254,12 +251,6 @@ static void processKeyboard()
 
     // Simulation
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) scene.reset();
-
-    // Config
-    if (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS)
-        saveConfig("config.txt", scene.emitter, scene.globals);
-    if (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS)
-        loadConfig("config.txt", scene.emitter, scene.globals);
 
     int sel = scene.selectedObjectIndex;
     if (sel >= 0 && sel < (int)scene.objects.size()) {

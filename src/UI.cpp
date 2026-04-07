@@ -125,9 +125,6 @@ void UI::init(Scene* scene, Camera* camera)
 
 void UI::draw(const ImGuiIO& io)
 {
-    // Reset per-frame signals
-    wantSaveConfig = false;
-    wantLoadConfig = false;
     wantRestart = false;
 
     const glm::mat4& vp = camera_->getViewProj();
@@ -304,12 +301,6 @@ void UI::drawObjectsPanel()
         ImGui::TextDisabled("scene");
         key("R", rKey); ImGui::SameLine();
         ImGui::TextUnformatted("Restart");
-
-        key("F5", f5); ImGui::SameLine();
-        ImGui::TextUnformatted("Save config");
-
-        key("F9", f9); ImGui::SameLine();
-        ImGui::TextUnformatted("Load config");
     }
     ImGui::EndChild();
 

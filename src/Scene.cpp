@@ -1,5 +1,4 @@
 #include "Scene.h"
-#include "Config.h"
 #include <algorithm>
 #include <cmath>
 

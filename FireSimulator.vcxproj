@@ -13,7 +13,6 @@
   <ItemGroup>
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\glad.c" />
-    <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\BillboardRenderer.cpp" />
     <ClCompile Include="src\MeshLoader.cpp" />
     <ClCompile Include="src\NavierStokes.cpp" />
@@ -26,7 +25,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Camera.h" />
-    <ClInclude Include="src\Config.h" />
     <ClInclude Include="src\BillboardRenderer.h" />
     <ClInclude Include="src\MeshLoader.h" />
     <ClInclude Include="src\Particles.h" />
