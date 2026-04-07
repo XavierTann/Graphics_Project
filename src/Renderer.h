@@ -40,16 +40,8 @@ public:
         const glm::vec3& windVec, const glm::vec3& origin);
 
     // Draw all scene-object meshes as solid coloured geometry.
-    // objectInstData is used only for colour lookup (parallel to meshFiles).
     void drawMeshes(const glm::mat4& view, const glm::mat4& proj,
         const std::vector<SceneObject>& objects);
-
-    // Upload + draw object billboards (green/orange/grey quads).
-    void drawObjectBillboards(const std::vector<InstanceAttrib>& data,
-        shader& smokeShader,
-        const glm::mat4& proj, const glm::mat4& view,
-        const glm::vec3& camRight, const glm::vec3& camUp,
-        const BillboardLighting& lighting);
 
     // Upload + draw flame billboards (additive blend).
     void drawFlames(const std::vector<InstanceAttrib>& data,

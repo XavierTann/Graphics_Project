@@ -172,8 +172,8 @@ void UI::drawObjectsPanel()
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
     static const std::vector<std::string> empty;
-    const auto& available = scene_->availableMeshNames
-        ? *scene_->availableMeshNames : empty;
+    const auto& available = (scene_->meshLoader)
+        ? scene_->meshLoader->availableMeshes : empty;
     auto& objects = scene_->objects;
     int& sel = scene_->selectedObjectIndex;
     drawSectionHeader("Asset library");
