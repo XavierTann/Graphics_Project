@@ -146,11 +146,12 @@ void UI::drawAxisLabels(const glm::mat4& viewProj, float winW, float winH)
 
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
 
-    // +X label (D key — red)
     ImVec2 px = project({ 2.7f, 0.01f, 0.0f });
     dl->AddText(px, IM_COL32(220, 60, 60, 220), "+X  (D)");
 
-    // +Z label (S key — blue)
+    ImVec2 py = project({ 0.01f, 2.7f, 0.0f });
+    dl->AddText(py, IM_COL32(31, 224, 56, 255), "+Y  (W)");
+
     ImVec2 pz = project({ 0.0f, 0.01f, 2.7f });
     dl->AddText(pz, IM_COL32(70, 130, 220, 220), "+Z  (S)");
 }
@@ -295,22 +296,21 @@ void UI::drawObjectsPanel()
 
         ImGui::TextDisabled("camera");
         key("Left Mouse", lmb); ImGui::SameLine();
-        ImGui::TextUnformatted("Drag obj / orbit");
+        ImGui::TextUnformatted("Orbit camera");
         key("Middle Mouse", mmb); ImGui::SameLine();
         ImGui::TextUnformatted("Pan camera");
         ImGui::Spacing();
         bool hasObj = sel >= 0 && sel < (int)objects.size();
         ImGui::TextDisabled("selected object");
-        if (!hasObj) ImGui::BeginDisabled();
-        key("W", wKey); ImGui::SameLine();
         key("A", aKey); ImGui::SameLine();
-        key("S", sKey); ImGui::SameLine();
         key("D", dKey); ImGui::SameLine();
+        ImGui::TextUnformatted("Move X");
+        key("W", wKey); ImGui::SameLine();
+        key("S", sKey); ImGui::SameLine();
+        ImGui::TextUnformatted("Move Y");
         key("Q", qKey); ImGui::SameLine();
         key("E", eKey); ImGui::SameLine();
-        ImGui::TextUnformatted("Move XY + Z");
-        if (!hasObj) ImGui::EndDisabled();
-
+        ImGui::TextUnformatted("Move Z");
         ImGui::Spacing();
         ImGui::TextDisabled("scene");
         key("R", rKey); ImGui::SameLine();

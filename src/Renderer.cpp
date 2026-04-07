@@ -203,15 +203,13 @@ void Renderer::drawGrid(const glm::mat4& view, const glm::mat4& proj)
     glUniformMatrix4fv(glGetUniformLocation(gridShader_, "MVP"), 1, GL_FALSE, &MVP[0][0]);
     glBindVertexArray(gridVAO_);
     glDrawArrays(GL_LINES, 0, gridVertexCount_);
-
-    // Axis lines — drawn slightly above grid (y=0.01) to avoid z-fighting
     glLineWidth(2.5f);
     glUseProgram(lineShader_);
     glUniformMatrix4fv(glGetUniformLocation(lineShader_, "MVP"), 1, GL_FALSE, &MVP[0][0]);
     int locCol = glGetUniformLocation(lineShader_, "uColor");
 
     glBindVertexArray(axisVAO_);
-    glUniform4f(locCol, 0.85f, 0.18f, 0.18f, 1.0f); // red  = +X (D)
+    glUniform4f(locCol, 0.85f, 0.18f, 0.18f, 1.0f);
     glDrawArrays(GL_LINES, 0, 2);
     glUniform4f(locCol, 0.12f, 0.88f, 0.22f, 1.0f);
     glDrawArrays(GL_LINES, 2, 2);
