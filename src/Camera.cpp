@@ -9,8 +9,8 @@
 void Camera::update()
 {
     float cx = radius * std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
-    float cy = radius * std::sin(glm::radians(pitch));
-    float cz = radius * std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    float cy = radius * std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    float cz = radius * std::sin(glm::radians(pitch));
     position_ = target + glm::vec3(cx, cy, cz);
 
     view_ = glm::lookAt(position_, target, up);
@@ -52,8 +52,8 @@ void Camera::onMouseMove(float xpos, float ypos)
     if (isPanning_) {
         glm::vec3 forward;
         forward.x = std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
-        forward.y = std::sin(glm::radians(pitch));
-        forward.z = std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+        forward.y = std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+        forward.z = std::sin(glm::radians(pitch));
         forward = glm::normalize(forward);
 
         glm::vec3 right = glm::normalize(glm::cross(forward, up));

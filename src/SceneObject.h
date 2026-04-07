@@ -14,6 +14,8 @@ public:
     // --- Transform ---
     glm::vec3 pos = glm::vec3(0.0f);
     float     markerSize = 0.5f;
+    float     minLocalZ = 0.0f;
+    bool      boundsReady = false;
 
     // --- Disturbance field (pushes nearby particles) ---
     float disturbRadius = 0.8f;
@@ -37,7 +39,13 @@ public:
     glm::vec3 ignitionLocal = glm::vec3(0.0f);
 
     bool isDead() const { return alpha <= 0.001f; }
+    float minAllowedZ() const
+    {
+        float z = boundsReady ? (-minLocalZ * markerSize) : 0.0f;
+        return z > 0.0f ? z : 0.0f;
+    }
     float burnFront(float intensity) const;
+
 
 
     int update(float dt,

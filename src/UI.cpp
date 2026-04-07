@@ -198,8 +198,17 @@ void UI::drawObjectsPanel()
         SceneObject obj;
         obj.meshFile = available[selectedMeshIndex_];
         obj.pos = scene_->emitter.origin;
-        obj.pos.y = 0.0f;
-        if (obj.pos.z < 0.5f) obj.pos.z = 0.5f;
+        obj.pos.z = 0.0f;
+        if (scene_->meshLoader) {
+            const GpuMesh* m = scene_->meshLoader->get(obj.meshFile);
+            if (m && !m->cpuPositions.empty()) {
+                float minZ = 1e9f;
+                for (const auto& p : m->cpuPositions) minZ = std::min(minZ, p.y);
+                obj.minLocalZ = (minZ < 1e8f) ? minZ : 0.0f;
+                obj.boundsReady = true;
+                obj.pos.z = obj.minAllowedZ();
+            }
+        }
         objects.push_back(obj);
         sel = (int)objects.size() - 1;
     }
@@ -248,7 +257,7 @@ void UI::drawObjectsPanel()
         const auto& p = objects[sel].pos;
         ImGui::TextDisabled("%s  —  %.2f  %.2f  %.2f",
             objects[sel].meshFile.c_str(), p.x, p.y, p.z);
-        ImGui::TextDisabled("LMB drag or WASD to move");
+        ImGui::TextDisabled("LMB drag (XY), WASD (XY), QE (Z)");
     }
     ImGui::Spacing();
     drawSectionHeader("Controls");
@@ -276,6 +285,8 @@ void UI::drawObjectsPanel()
     bool aKey = ImGui::IsKeyDown(ImGuiKey_A);
     bool sKey = ImGui::IsKeyDown(ImGuiKey_S);
     bool dKey = ImGui::IsKeyDown(ImGuiKey_D);
+    bool qKey = ImGui::IsKeyDown(ImGuiKey_Q);
+    bool eKey = ImGui::IsKeyDown(ImGuiKey_E);
     bool rKey = ImGui::IsKeyDown(ImGuiKey_R);
     bool f5 = ImGui::IsKeyDown(ImGuiKey_F5);
     bool f9 = ImGui::IsKeyDown(ImGuiKey_F9);
@@ -295,7 +306,9 @@ void UI::drawObjectsPanel()
         key("A", aKey); ImGui::SameLine();
         key("S", sKey); ImGui::SameLine();
         key("D", dKey); ImGui::SameLine();
-        ImGui::TextUnformatted("Move XZ");
+        key("Q", qKey); ImGui::SameLine();
+        key("E", eKey); ImGui::SameLine();
+        ImGui::TextUnformatted("Move XY + Z");
         if (!hasObj) ImGui::EndDisabled();
 
         ImGui::Spacing();

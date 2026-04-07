@@ -56,7 +56,7 @@ int SceneObject::update(float dt,
         if (!ignitionSet) {
             ignitionSet = true;
             ignitionLocal = glm::vec3(0.0f);
-            ignitionLocal.y = 0.0f;
+            ignitionLocal.z = 0.0f;
             float len = glm::length(ignitionLocal);
             if (len > 0.85f) ignitionLocal *= (0.85f / len);
         }

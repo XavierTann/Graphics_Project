@@ -22,9 +22,9 @@ void Renderer::init()
     const float half = size * 0.5f;
     for (int i = 0; i <= slices; ++i) {
         float x = -half + i * step;
-        gridVerts.insert(gridVerts.end(), { x, 0.0f, -half,  x, 0.0f, half });
-        float z = -half + i * step;
-        gridVerts.insert(gridVerts.end(), { -half, 0.0f, z,  half, 0.0f, z });
+        gridVerts.insert(gridVerts.end(), { x, -half, 0.0f,  x, half, 0.0f });
+        float y = -half + i * step;
+        gridVerts.insert(gridVerts.end(), { -half, y, 0.0f,  half, y, 0.0f });
     }
     gridVertexCount_ = (int)gridVerts.size() / 3;
 
@@ -48,10 +48,11 @@ void Renderer::init()
     glEnableVertexAttribArray(0);
     glBindVertexArray(0);
 
-    // ---- Axis lines (+X red, +Z blue) ----
+    // ---- Axis lines (+X, +Y, +Z) ----
     float axisVerts[] = {
-        0.0f, 0.01f, 0.0f,   2.5f, 0.01f, 0.0f,
-        0.0f, 0.01f, 0.0f,   0.0f, 0.01f, 2.5f,
+        0.0f, 0.0f, 0.01f,   2.5f, 0.0f, 0.01f,
+        0.0f, 0.0f, 0.01f,   0.0f, 2.5f, 0.01f,
+        0.01f, 0.0f, 0.0f,   0.01f, 0.0f, 2.5f,
     };
     glGenVertexArrays(1, &axisVAO_);
     glGenBuffers(1, &axisVBO_);
@@ -212,8 +213,10 @@ void Renderer::drawGrid(const glm::mat4& view, const glm::mat4& proj)
     glBindVertexArray(axisVAO_);
     glUniform4f(locCol, 0.85f, 0.18f, 0.18f, 1.0f); // red  = +X (D)
     glDrawArrays(GL_LINES, 0, 2);
-    glUniform4f(locCol, 0.22f, 0.48f, 0.90f, 1.0f); // blue = +Z (S)
+    glUniform4f(locCol, 0.12f, 0.88f, 0.22f, 1.0f);
     glDrawArrays(GL_LINES, 2, 2);
+    glUniform4f(locCol, 0.22f, 0.48f, 0.90f, 1.0f);
+    glDrawArrays(GL_LINES, 4, 2);
     glLineWidth(1.0f);
 
     glBindVertexArray(0);
@@ -277,9 +280,9 @@ void Renderer::drawMeshes(const glm::mat4& view, const glm::mat4& proj,
         const GpuMesh* mesh = meshLoader_.get(obj.meshFile);
         if (!mesh || !mesh->valid) continue;
 
-        glm::mat4 model = glm::scale(
-            glm::translate(glm::mat4(1.0f), obj.pos),
-            glm::vec3(obj.markerSize));
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), obj.pos);
+        model = model * glm::rotate(glm::mat4(1.0f), 1.57079632679f, glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(obj.markerSize));
         glm::mat4 mvp = proj * view * model;
 
         glm::vec4 col;
@@ -418,8 +421,9 @@ void Renderer::drawSmoke(const std::vector<InstanceAttrib>& data,
 
 void Renderer::loadDecorationMesh(const std::string& path, const glm::vec3& pos, float scale)
 {
-    // meshLoader_.scan() already crawled "data/", so just register the entry.
-    // The actual GpuMesh is loaded on first get() call (lazy load via MeshLoader).
+    for (const auto& d : decorations_) {
+        if (d.meshFile == path && d.pos == pos && d.scale == scale) return;
+    }
     decorations_.push_back({ path, pos, scale });
 }
 
@@ -442,9 +446,9 @@ void Renderer::drawDecorations(const glm::mat4& view, const glm::mat4& proj)
         const GpuMesh* mesh = meshLoader_.get(dec.meshFile);
         if (!mesh || !mesh->valid) continue;
 
-        glm::mat4 model = glm::scale(
-            glm::translate(glm::mat4(1.0f), dec.pos),
-            glm::vec3(dec.scale));
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), dec.pos);
+        model = model * glm::rotate(glm::mat4(1.0f), 1.57079632679f, glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(dec.scale));
         glm::mat4 mvp = proj * view * model;
 
         glUniformMatrix4fv(locMVP, 1, GL_FALSE, &mvp[0][0]);

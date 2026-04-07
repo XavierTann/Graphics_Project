@@ -9,8 +9,8 @@ public:
     float pitch = 0.0f;
     float radius = 2.5f;
     float fovy = 45.0f;
-    glm::vec3 target = glm::vec3(0.0f, 0.5f, 0.0f);
-    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.5f);
+    glm::vec3 up = glm::vec3(0.0f, 0.0f, 1.0f);
 
 
 	void update(); // Call this after changing any of the above parameters
@@ -40,9 +40,9 @@ private:
     float lastMouseY_ = 0.0f;
 
 	//default camera parameters
-    glm::vec3 position_ = glm::vec3(0.0f, 0.5f, 2.5f);
+    glm::vec3 position_ = glm::vec3(0.0f, -2.5f, 0.8f);
     glm::vec3 right_ = glm::vec3(1.0f, 0.0f, 0.0f);
-    glm::vec3 camUp_ = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 camUp_ = glm::vec3(0.0f, 0.0f, 1.0f);
     glm::mat4 view_ = glm::mat4(1.0f);
     glm::mat4 proj_ = glm::mat4(1.0f);
     glm::mat4 viewProj_ = glm::mat4(1.0f);

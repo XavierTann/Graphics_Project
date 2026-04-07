@@ -39,8 +39,8 @@ void ParticleSystem::spawn(int count) {
         pr.pos = emitter.origin;
 
         float vx = randf(-0.5f, 0.5f, s * 1.1f) * emitter.radius;
-        float vy = randf(emitter.initialSpeedMin, emitter.initialSpeedMax, s * 2.2f);
-        float vz = randf(-0.5f, 0.5f, s * 3.3f) * emitter.radius;
+        float vy = randf(-0.5f, 0.5f, s * 3.3f) * emitter.radius;
+        float vz = randf(emitter.initialSpeedMin, emitter.initialSpeedMax, s * 2.2f);
         pr.vel = glm::vec3(vx, vy, vz);
 
         float lifeVar = randf(0.0f, 0.5f, s * 4.4f);
@@ -61,8 +61,8 @@ void ParticleSystem::spawn(int count) {
             float angle = randf(0.0f, 6.28f, s * 8.8f);
             pr.vel = glm::vec3(
                 std::cos(angle) * sparkSpeed * 0.6f,
-                randf(0.5f, 1.5f, s * 10.0f) * sparkSpeed,
-                std::sin(angle) * sparkSpeed * 0.6f
+                std::sin(angle) * sparkSpeed * 0.6f,
+                randf(0.5f, 1.5f, s * 10.0f) * sparkSpeed
             );
         }
         particles.push_back(pr);
@@ -76,15 +76,15 @@ void ParticleSystem::spawnAt(const glm::vec3& pos, float speed) {
 
     if (smokeMode) {
         pr.vel = glm::vec3(randf(-1.0f, 1.0f, s * 1.3f) * 0.15f,
-            randf(speed * 0.2f, speed * 0.6f, s * 3.7f),
-            randf(-1.0f, 1.0f, s * 2.1f) * 0.15f);
+            randf(-1.0f, 1.0f, s * 2.1f) * 0.15f,
+            randf(speed * 0.2f, speed * 0.6f, s * 3.7f));
         pr.maxLife = randf(2.5f, 6.0f, s);
         pr.color = glm::vec4(0.35f, 0.35f, 0.35f, 0.25f);
     }
     else {
         pr.vel = glm::vec3(randf(-0.5f, 0.5f, s * 1.3f) * emitter.radius,
-            randf(speed * 0.7f, speed * 1.2f, s * 3.7f),
-            randf(-0.5f, 0.5f, s * 2.1f) * emitter.radius);
+            randf(-0.5f, 0.5f, s * 2.1f) * emitter.radius,
+            randf(speed * 0.7f, speed * 1.2f, s * 3.7f));
         pr.maxLife = randf(std::max(0.2f, emitter.lifetimeBase * 0.6f),
             emitter.lifetimeBase + 0.5f, s);
         pr.color = glm::vec4(1.0f, 0.9f, 0.2f, 1.0f);
@@ -136,7 +136,7 @@ void ParticleSystem::update(float dt, float time) {
             float blend = smokeMode ? 0.92f : 0.70f;
             p.vel = glm::mix(p.vel, gridVel, blend);
             float localT = nsGrid.sampleScalar(nsGrid.temperature, p.pos);
-            p.vel.y += params.buoyancy * localT * dt * 0.5f;
+            p.vel.z += params.buoyancy * localT * dt * 0.5f;
         }
         else {
             glm::vec3 externalForces = smokeMode
@@ -144,25 +144,25 @@ void ParticleSystem::update(float dt, float time) {
                 : params.wind;
 
             float buoyScale = smokeMode ? 0.15f : 0.5f;
-            externalForces.y += params.buoyancy * buoyScale;
+            externalForces.z += params.buoyancy * buoyScale;
 
             glm::vec3 curlPos = p.pos * params.turbFreq;
-            curlPos.y += smokeMode ? time * 0.2f : -time * params.turbFreq;
+            curlPos.z += smokeMode ? time * 0.2f : -time * params.turbFreq;
             externalForces += computeCurl(curlPos) *
                 (smokeMode ? params.turbAmp * 0.6f : params.turbAmp);
 
             if (tornadoEnabled) {
                 glm::vec3 rel = p.pos - tornadoOrigin;
-                float r = std::sqrt(rel.x * rel.x + rel.z * rel.z);
+                float r = std::sqrt(rel.x * rel.x + rel.y * rel.y);
                 float falloff = std::exp(-r / tornadoRadius);
                 glm::vec3 tang(0.f), inward(0.f);
                 if (r > 1e-4f) {
-                    tang = glm::normalize(glm::vec3(-rel.z, 0.f, rel.x));
-                    inward = -glm::normalize(glm::vec3(rel.x, 0.f, rel.z));
+                    tang = glm::normalize(glm::vec3(-rel.y, rel.x, 0.f));
+                    inward = -glm::normalize(glm::vec3(rel.x, rel.y, 0.f));
                 }
                 externalForces += tang * tornadoStrength * falloff;
                 externalForces += inward * tornadoInflow * falloff;
-                externalForces += glm::vec3(0.f, tornadoUpdraft * falloff, 0.f);
+                externalForces += glm::vec3(0.f, 0.f, tornadoUpdraft * falloff);
             }
 
             for (const auto& dist : disturbers) {
@@ -170,11 +170,11 @@ void ParticleSystem::update(float dt, float time) {
                 float r = glm::length(rel);
                 if (r >= dist.radius || dist.radius < 1e-4f) continue;
                 float falloff = 1.0f - r / dist.radius;
-                glm::vec3 horiz(rel.x, 0.f, rel.z);
+                glm::vec3 horiz(rel.x, rel.y, 0.f);
                 float hr = glm::length(horiz);
                 if (hr < 1e-4f) continue;
                 glm::vec3 push = glm::normalize(horiz);
-                glm::vec3 swirl = glm::normalize(glm::vec3(-horiz.z, 0.f, horiz.x));
+                glm::vec3 swirl = glm::normalize(glm::vec3(-horiz.y, horiz.x, 0.f));
                 externalForces += (swirl + push * 0.35f) * dist.strength * falloff;
             }
 
@@ -183,22 +183,22 @@ void ParticleSystem::update(float dt, float time) {
 
             if (p.isSpark) {
                 p.vel.x *= 0.97f;
-                p.vel.z *= 0.97f;
-                p.vel.y -= 2.8f * dt;
+                p.vel.y *= 0.97f;
+                p.vel.z -= 2.8f * dt;
             }
             else {
                 float smokePhase = std::clamp((t - 0.45f) / 0.55f, 0.0f, 1.0f);
                 if (smokePhase > 0.0f) {
                     glm::vec3 smokeCurlPos = p.pos * (params.turbFreq * 0.55f + 0.15f);
-                    smokeCurlPos.y += time * 0.18f + p.seed * 0.0015f;
+                    smokeCurlPos.z += time * 0.18f + p.seed * 0.0015f;
                     glm::vec3 smokeLift = params.wind * (0.25f + smokePhase * 0.45f);
-                    smokeLift.y += params.buoyancy * (0.06f + smokePhase * 0.08f);
+                    smokeLift.z += params.buoyancy * (0.06f + smokePhase * 0.08f);
                     smokeLift += computeCurl(smokeCurlPos) * (params.turbAmp * (0.18f + smokePhase * 0.24f));
                     p.vel += smokeLift * dt;
                     p.vel *= (1.0f - smokePhase * 0.025f);
                 }
                 p.vel.x *= 0.99f;
-                p.vel.z *= 0.99f;
+                p.vel.y *= 0.99f;
             }
 
 
@@ -220,8 +220,8 @@ void ParticleSystem::update(float dt, float time) {
             float flameCurve = std::max(0.0f, 1.0f - std::pow((std::min(t, 0.62f) / 0.62f) * 2.0f - 1.0f, 2.0f));
             float smokePhase = std::clamp((t - 0.40f) / 0.60f, 0.0f, 1.0f);
             float puff = 0.80f + 0.35f * noise(p.pos.x * 2.5f + p.seed * 0.01f,
-                p.pos.y * 2.0f + time * 0.2f,
-                p.pos.z * 2.5f - p.seed * 0.02f);
+                p.pos.z * 2.0f + time * 0.2f,
+                p.pos.y * 2.5f - p.seed * 0.02f);
             p.size = emitter.baseSize * (0.28f + flameCurve * 1.35f + smokePhase * (2.1f + puff * 1.6f));
 
             if (t < 0.20f) {

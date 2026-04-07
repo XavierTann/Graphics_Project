@@ -216,7 +216,7 @@ static void renderFrame(float dt, float now)
 
 	renderer.drawGrid(view, proj);
 	renderer.drawMarkerPoint(view, proj, scene.emitter.origin, glm::vec4(0.20f, 1.0f, 0.25f, 1.0f), 10.0f);
-	renderer.loadDecorationMesh("campfire.glb", glm::vec3(0.15f, -0.05f, 0.0f), 0.00075f);
+	renderer.loadDecorationMesh("campfire.glb", glm::vec3(0.15f, 0.0f, -0.05f), 0.00075f);
 
 
 	// Draw wind arrow if enabled
@@ -256,12 +256,15 @@ static void processKeyboard()
     if (sel >= 0 && sel < (int)scene.objects.size()) {
         const float spd = 1.6f * 0.016f;
         SceneObject& obj = scene.objects[sel];
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) obj.pos.z -= spd;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) obj.pos.z += spd;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) obj.pos.y += spd;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) obj.pos.y -= spd;
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) obj.pos.x -= spd;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) obj.pos.x += spd;
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) obj.pos.z -= spd;
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) obj.pos.z += spd;
 
-        if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
+        float minAllowedZ = obj.minAllowedZ();
+        if (obj.pos.z < minAllowedZ) obj.pos.z = minAllowedZ;
     }
 }
 
@@ -310,13 +313,14 @@ static void handleObjectDrag(double xpos, double ypos)
 	glm::vec3 rayO = glm::vec3(nearP);
 	glm::vec3 rayD = glm::normalize(glm::vec3(farP - nearP));
 
-	if (std::abs(rayD.y) > 1e-5f) {
-		float t = (obj.pos.y - rayO.y) / rayD.y;
+	if (std::abs(rayD.z) > 1e-5f) {
+		float t = (obj.pos.z - rayO.z) / rayD.z;
 		if (t > 0.0f) {
 			glm::vec3 hit = rayO + rayD * t;
 			obj.pos.x = hit.x;
-			obj.pos.z = hit.z;
-			if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
+			obj.pos.y = hit.y;
+			float minAllowedZ = obj.minAllowedZ();
+			if (obj.pos.z < minAllowedZ) obj.pos.z = minAllowedZ;
 		}
 	}
 }

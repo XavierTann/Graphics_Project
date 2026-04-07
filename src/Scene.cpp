@@ -103,7 +103,7 @@ float Scene::intensity() const
 
 glm::vec3 Scene::fireLightPosition() const
 {
-    return emitter.origin + glm::vec3(0.0f, 0.35f + emitter.radius * 1.2f, 0.0f);
+    return emitter.origin + glm::vec3(0.0f, 0.0f, 0.35f + emitter.radius * 1.2f);
 }
 
 float Scene::fireLightStrength() const
@@ -222,7 +222,18 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
     disturbers.reserve(objects.size());
     for (int i = 0; i < (int)objects.size(); ) {
         SceneObject& obj = objects[i];
-        if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
+        if (!obj.boundsReady && meshLoader) {
+            const GpuMesh* m = meshLoader->get(obj.meshFile);
+            if (m && !m->cpuPositions.empty()) {
+                float minZ = 1e9f;
+                for (const auto& p : m->cpuPositions) minZ = std::min(minZ, p.y);
+                obj.minLocalZ = (minZ < 1e8f) ? minZ : 0.0f;
+            }
+            obj.boundsReady = true;
+        }
+
+        float minAllowedZ = obj.minAllowedZ();
+        if (obj.pos.z < minAllowedZ) obj.pos.z = minAllowedZ;
         int spawnCount = obj.update(dt, intens,
             emitter.origin, emitter.radius,
             objects, i);
@@ -234,20 +245,20 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
             glm::vec3 local;
             float seed = time * 13.1f + (float)i * 97.3f + (float)k * 41.7f;
             if (sampleSurfacePoint(m, seed, local)) {
+                glm::vec3 localR(local.x, -local.z, local.y);
                 float front = obj.burnFront(intens);
-                glm::vec3 fromIgnition = local - obj.ignitionLocal;
+                glm::vec3 fromIgnition = localR - obj.ignitionLocal;
                 float dist = glm::length(fromIgnition);
                 float allow = std::clamp(front * 1.35f, 0.0f, 1.0f);
                 if (dist > allow) continue;
 
-                spawnPos = obj.pos + local * obj.markerSize;
+                spawnPos = obj.pos + localR * obj.markerSize;
                 glm::vec3 jitter(
                     rand01(seed + 9.1f) - 0.5f,
                     rand01(seed + 10.2f) - 0.5f,
                     rand01(seed + 11.3f) - 0.5f);
                 float jitterScale = 0.06f * (obj.markerSize > 0.05f ? obj.markerSize : 0.05f);
                 spawnPos += jitter * jitterScale;
-                if (spawnPos.y < 0.0f) spawnPos.y = 0.0f;
                 if (spawnPos.z < 0.0f) spawnPos.z = 0.0f;
             }
             else {
@@ -256,8 +267,8 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
                 float r = obj.markerSize * 0.3f * (0.5f + (float)k * 0.1f);
                 spawnPos = obj.pos + glm::vec3(
                     std::cos(angle) * r,
-                    0.0f,
-                    std::sin(angle) * r
+                    std::sin(angle) * r,
+                    0.0f
                 );
                 if (spawnPos.z < 0.0f) spawnPos.z = 0.0f;
             }
@@ -280,7 +291,6 @@ void Scene::update(float dt, float time, const glm::mat4& viewProj)
             else if (selectedObjectIndex > i) selectedObjectIndex--;
             continue;
         }
-        if (obj.pos.z < 0.0f) obj.pos.z = 0.0f;
         ++i;
     }
 
