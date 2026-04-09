@@ -6,14 +6,61 @@
 #define Z_NEAR 0.001f
 #define Z_FAR  100.0f
 
+void Camera::setFpsMode(bool enabled)
+{
+    fpsMode_ = enabled;
+    fpsLookInit_ = false;
+    if (fpsMode_) {
+        fpsPos_ = position_;
+    }
+}
+
+glm::vec3 Camera::getForward() const
+{
+    glm::vec3 f = glm::normalize(target - position_);
+    if (glm::length(f) < 1e-6f) return glm::vec3(0.0f, 1.0f, 0.0f);
+    return f;
+}
+
+void Camera::onFpsMouseMove(float xpos, float ypos)
+{
+    if (!fpsLookInit_) {
+        lastMouseX_ = xpos;
+        lastMouseY_ = ypos;
+        fpsLookInit_ = true;
+        return;
+    }
+
+    float dx = xpos - lastMouseX_;
+    float dy = lastMouseY_ - ypos;
+    lastMouseX_ = xpos;
+    lastMouseY_ = ypos;
+
+    const float sensitivity = 0.06f;
+    yaw -= dx * sensitivity;
+    pitch += dy * sensitivity;
+    pitch = std::clamp(pitch, -89.0f, 89.0f);
+}
+
 void Camera::update()
 {
-    float cx = radius * std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
-    float cy = radius * std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
-    float cz = radius * std::sin(glm::radians(pitch));
-    position_ = target + glm::vec3(cx, cy, cz);
-
-    view_ = glm::lookAt(position_, target, up);
+    if (fpsMode_) {
+        glm::vec3 forward;
+        forward.x = std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+        forward.y = std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+        forward.z = std::sin(glm::radians(pitch));
+        forward = glm::normalize(forward);
+        position_ = fpsPos_;
+        target = position_ + forward;
+        view_ = glm::lookAt(position_, target, up);
+    }
+    else {
+        float cx = radius * std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+        float cy = radius * std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+        float cz = radius * std::sin(glm::radians(pitch));
+        position_ = target + glm::vec3(cx, cy, cz);
+        view_ = glm::lookAt(position_, target, up);
+    }
     proj_ = glm::perspective(glm::radians(fovy), aspect_, Z_NEAR, Z_FAR);
     viewProj_ = proj_ * view_;
 

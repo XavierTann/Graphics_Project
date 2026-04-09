@@ -11,6 +11,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 #include "shader.h"
 #include "shaderSource.h"
@@ -154,7 +155,7 @@ int main()
 
 
 		// Act on UI signals from this frame
-		if (ui.wantRestart) scene.reset();
+		if (ui.wantRestart && !scene.isSecretMode()) scene.reset();
 
 		// Update the scene and build instance data for rendering
 		renderFrame(dt, now);
@@ -193,7 +194,7 @@ static void renderFrame(float dt, float now)
 
 	// Update camera and scene, which will prepare instance data for rendering
 	camera.update();
-	scene.update(dt, now, camera.getViewProj());
+	scene.update(dt, now, camera.getViewProj(), camera.getPosition(), camera.getForward());
 
 
 	//get camera matrices and billboard vectors for rendering
@@ -211,8 +212,10 @@ static void renderFrame(float dt, float now)
 
 
 	renderer.drawGrid(view, proj);
-	renderer.drawMarkerPoint(view, proj, scene.emitter.origin, glm::vec4(0.20f, 1.0f, 0.25f, 1.0f), 10.0f);
-	renderer.loadDecorationMesh("campfire.glb", glm::vec3(0.15f, 0.0f, -0.05f), 0.00075f);
+	if (!scene.isSecretMode()) {
+		renderer.drawMarkerPoint(view, proj, scene.emitter.origin, glm::vec4(0.20f, 1.0f, 0.25f, 1.0f), 10.0f);
+		renderer.loadDecorationMesh("campfire.glb", glm::vec3(0.15f, 0.0f, -0.05f), 0.00075f);
+	}
 
 
 	// Draw wind arrow if enabled
@@ -228,8 +231,15 @@ static void renderFrame(float dt, float now)
 
 	// Draw smoke, flames, and scene objects (objects drawn last to appear on top of particles)
 	renderer.drawMeshes(view, proj, scene.objects);
-	renderer.drawDecorations(view, proj);
+	if (!scene.isSecretMode())
+		renderer.drawDecorations(view, proj);
 	renderer.drawFlames(scene.flameInstData, flameShader, proj, view, right, up, lighting);
+	if (scene.isSecretMode()) {
+		renderer.drawFlames(scene.secretBossFlameInstData, flameShader, proj, view, right, up, lighting);
+		BillboardLighting playerLighting = lighting;
+		playerLighting.fireLightColor = glm::vec3(1.0f, 0.48f, 0.18f);
+		renderer.drawFlames(scene.secretPlayerFlameInstData, flameShader, proj, view, right, up, playerLighting);
+	}
 	if (scene.smokeEnabled)
 		renderer.drawSmoke(scene.smokeInstData, smokeShader, proj, view, right, up, lighting);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -241,11 +251,132 @@ static void renderFrame(float dt, float now)
 
 static void processKeyboard()
 {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	static bool wasSecret = false;
+	static bool prevEsc = false;
+	static float savedYaw = 0.0f;
+	static float savedPitch = 0.0f;
+	static float savedRadius = 0.0f;
+	static float savedFovy = 0.0f;
+	static glm::vec3 savedTarget(0.0f);
+
+	bool isSecret = scene.isSecretMode();
+	if (!wasSecret && isSecret) {
+		savedYaw = camera.yaw;
+		savedPitch = camera.pitch;
+		savedRadius = camera.radius;
+		savedFovy = camera.fovy;
+		savedTarget = camera.target;
+		camera.setFpsMode(true);
+		camera.setFpsPosition(glm::vec3(0.0f, -3.7f, 0.95f));
+		camera.yaw = 90.0f;
+		camera.pitch = 0.0f;
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		isObjectDragging = false;
+		draggingObjectIndex = -1;
+	}
+	if (wasSecret && !isSecret) {
+		camera.setFpsMode(false);
+		camera.yaw = savedYaw;
+		camera.pitch = savedPitch;
+		camera.radius = savedRadius;
+		camera.fovy = savedFovy;
+		camera.target = savedTarget;
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		isObjectDragging = false;
+		draggingObjectIndex = -1;
+	}
+	wasSecret = isSecret;
+
+	bool escDown = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+	if (isSecret) {
+		if (escDown && !prevEsc) {
+			bool shiftDown =
+				(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) ||
+				(glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
+			if (shiftDown) {
+				scene.exitSecretMode();
+			}
+			else {
+				glfwSetWindowShouldClose(window, true);
+			}
+		}
+		prevEsc = escDown;
+
+		camera.update();
+		glm::vec3 fwd = camera.getForward();
+		fwd.z = 0.0f;
+		float fl = glm::length(fwd);
+		if (fl > 1e-4f) fwd /= fl;
+		glm::vec3 right = glm::normalize(glm::cross(fwd, glm::vec3(0.0f, 0.0f, 1.0f)));
+
+		glm::vec3 move(0.0f);
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) move += fwd;
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) move -= fwd;
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) move += right;
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) move -= right;
+
+		float len = glm::length(move);
+		if (len > 1e-4f) move /= len;
+		const float spd = 1.6f * 0.016f;
+		glm::vec3 p = camera.getPosition();
+		p += move * spd;
+		p.z = 0.95f;
+		camera.setFpsPosition(p);
+		return;
+	}
+
+	if (escDown)
 		glfwSetWindowShouldClose(window, true);
+	prevEsc = escDown;
 
 	// Simulation
 	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) scene.reset();
+
+	static const std::string secretCode = "33550336";
+	static std::string typed;
+	static bool prevDigit[10] = { false,false,false,false,false,false,false,false,false,false };
+	if (!ImGui::GetIO().WantCaptureKeyboard) {
+		for (int d = 0; d <= 9; ++d) {
+			int key = GLFW_KEY_0 + d;
+			int kpKey = GLFW_KEY_KP_0 + d;
+			bool down = (glfwGetKey(window, key) == GLFW_PRESS) || (glfwGetKey(window, kpKey) == GLFW_PRESS);
+			if (down && !prevDigit[d]) {
+				typed.push_back((char)('0' + d));
+				if (typed.size() > secretCode.size())
+					typed.erase(0, typed.size() - secretCode.size());
+				if (typed == secretCode) {
+					typed.clear();
+					scene.enterSecretMode();
+					if (scene.isSecretMode()) {
+						savedYaw = camera.yaw;
+						savedPitch = camera.pitch;
+						savedRadius = camera.radius;
+						savedFovy = camera.fovy;
+						savedTarget = camera.target;
+						camera.setFpsMode(true);
+						camera.setFpsPosition(glm::vec3(0.0f, -3.7f, 0.95f));
+						camera.yaw = 90.0f;
+						camera.pitch = 0.0f;
+						camera.update();
+						glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+						isObjectDragging = false;
+						draggingObjectIndex = -1;
+						wasSecret = true;
+						prevEsc = false;
+						return;
+					}
+				}
+			}
+			prevDigit[d] = down;
+		}
+	}
+	else {
+		for (int d = 0; d <= 9; ++d) {
+			int key = GLFW_KEY_0 + d;
+			int kpKey = GLFW_KEY_KP_0 + d;
+			prevDigit[d] = (glfwGetKey(window, key) == GLFW_PRESS) || (glfwGetKey(window, kpKey) == GLFW_PRESS);
+		}
+	}
 
     int sel = scene.selectedObjectIndex;
     if (sel >= 0 && sel < (int)scene.objects.size()) {
@@ -339,10 +470,22 @@ static void cb_framebufferSize(GLFWwindow*, int w, int h)
 
 static void cb_mouseButton(GLFWwindow* win, int button, int action, int mods)
 {
-	if (ImGui::GetIO().WantCaptureMouse) return;
+	if (!scene.isSecretMode() && ImGui::GetIO().WantCaptureMouse) return;
 
 	double xpos, ypos;
 	glfwGetCursorPos(win, &xpos, &ypos);
+
+	if (scene.isSecretMode()) {
+		camera.update();
+		if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+			float now = (float)glfwGetTime();
+			scene.secretTryShoot(now, camera.getPosition(), camera.getForward());
+		}
+		if (button == GLFW_MOUSE_BUTTON_LEFT) {
+			scene.secretSetBlocking(action == GLFW_PRESS);
+		}
+		return;
+	}
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
 		if (action == GLFW_PRESS) {
@@ -364,6 +507,10 @@ static void cb_mouseButton(GLFWwindow* win, int button, int action, int mods)
 
 static void cb_cursorPos(GLFWwindow*, double xpos, double ypos)
 {
+	if (scene.isSecretMode()) {
+		camera.onFpsMouseMove((float)xpos, (float)ypos);
+		return;
+	}
 	if (isObjectDragging)
 		handleObjectDrag(xpos, ypos);
 	else
@@ -372,6 +519,7 @@ static void cb_cursorPos(GLFWwindow*, double xpos, double ypos)
 
 static void cb_scroll(GLFWwindow*, double, double yoffset)
 {
+	if (scene.isSecretMode()) return;
 	if (ImGui::GetIO().WantCaptureMouse) return;
 	camera.onScroll((float)yoffset);
 }

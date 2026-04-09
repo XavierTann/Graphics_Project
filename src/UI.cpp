@@ -130,6 +130,7 @@ void UI::draw(const ImGuiIO& io)
     const glm::mat4& vp = camera_->getViewProj();
     drawAxisLabels(vp, io.DisplaySize.x, io.DisplaySize.y);
 
+    if (scene_ && scene_->isSecretMode()) return;
     drawObjectsPanel();
     drawControlsPanel(io);
 }
