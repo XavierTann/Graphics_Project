@@ -8,7 +8,10 @@
 #include <cstring>
 #include <cmath>
 #include <iostream>
+#include <functional>
 #include <stb_image.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace fs = std::filesystem;
 
@@ -61,16 +64,37 @@ const GpuMesh* MeshLoader::get(const std::string& meshFile)
     return &cache_.find(meshFile)->second;
 }
 
+MeshLoader::MeshSettings MeshLoader::settingsFor(const std::string& meshFile) const
+{
+    MeshSettings s;
+    if (meshFile == "campfire.glb") {
+        s.desiredMaxExtent = 0.8f;
+        s.scaleMultiplier = 1.0f;
+        s.upMode = 0;
+        s.fixedScale = 0.00075f;
+        return s;
+    }
+    if (meshFile == "grass.glb") {
+        s.desiredMaxExtent = 0.8f;
+        s.scaleMultiplier = 1.0f;
+        s.upMode = 1;
+        return s;
+    }
+    return s;
+}
+
 
 // Free all GPU resources
 void MeshLoader::clear()
 {
     for (auto& kv : cache_) {
         GpuMesh& m = kv.second;
-        if (m.texture) glDeleteTextures(1, &m.texture);
-        if (m.ebo) glDeleteBuffers(1, &m.ebo);
-        if (m.vbo) glDeleteBuffers(1, &m.vbo);
-        if (m.vao) glDeleteVertexArrays(1, &m.vao);
+        for (auto& p : m.parts) {
+            if (p.texture) glDeleteTextures(1, &p.texture);
+            if (p.ebo) glDeleteBuffers(1, &p.ebo);
+            if (p.vbo) glDeleteBuffers(1, &p.vbo);
+            if (p.vao) glDeleteVertexArrays(1, &p.vao);
+        }
         m = GpuMesh{};
     }
     cache_.clear();
@@ -178,173 +202,396 @@ bool MeshLoader::buildGlb(const std::string& meshFile, GpuMesh& out)
         accessors[a].type           = t->s;
     }
 
-    const JsonValue& mesh0  = meshesJ->a[0];
-    const JsonValue* primsJ = jsonGet(mesh0, "primitives");
-    if (!primsJ || primsJ->type != JsonValue::Type::Array || primsJ->a.empty()) return false;
-    const JsonValue& prim0  = primsJ->a[0];
-    const JsonValue* attrsJ = jsonGet(prim0, "attributes");
-    if (!attrsJ || attrsJ->type != JsonValue::Type::Object) return false;
-    const JsonValue* posAccJ = jsonGet(*attrsJ, "POSITION");
-    if (!posAccJ || posAccJ->type != JsonValue::Type::Number) return false;
-    int posAccIndex = (int)posAccJ->n;
-
-    int uvAccIndex = -1;
-    const JsonValue* uvAccJ = jsonGet(*attrsJ, "TEXCOORD_0");
-    if (uvAccJ && uvAccJ->type == JsonValue::Type::Number) uvAccIndex = (int)uvAccJ->n;
-
-    int idxAccIndex = -1;
-    const JsonValue* indicesJ = jsonGet(prim0, "indices");
-    if (indicesJ && indicesJ->type == JsonValue::Type::Number)
-        idxAccIndex = (int)indicesJ->n;
-
-    if (posAccIndex < 0 || posAccIndex >= (int)accessors.size()) return false;
-    const Accessor& posAcc = accessors[posAccIndex];
-    if (posAcc.componentType != 5126 || posAcc.type != "VEC3" || posAcc.count == 0) return false;
-    if (posAcc.bufferView < 0 || posAcc.bufferView >= (int)views.size()) return false;
-    const BufferView& pv = views[posAcc.bufferView];
-    if (pv.buffer < 0 || pv.buffer >= (int)buffers.size()) return false;
-    const auto& pbuf = buffers[pv.buffer];
-    size_t pStride = pv.byteStride ? pv.byteStride : sizeof(float)*3;
-    size_t pBase   = pv.byteOffset + posAcc.byteOffset;
-    if (pBase + (posAcc.count-1)*pStride + sizeof(float)*3 > pbuf.size()) return false;
-
-    std::vector<float> uvs;
-    bool hasUv = false;
-    size_t uvStride = 0;
-    size_t uvBase = 0;
-    const unsigned char* uvBuf = nullptr;
-    if (uvAccIndex >= 0 && uvAccIndex < (int)accessors.size()) {
-        const Accessor& uvAcc = accessors[uvAccIndex];
-        if (uvAcc.componentType == 5126 && uvAcc.type == "VEC2" && uvAcc.count == posAcc.count) {
-            if (uvAcc.bufferView >= 0 && uvAcc.bufferView < (int)views.size()) {
-                const BufferView& uvv = views[uvAcc.bufferView];
-                if (uvv.buffer >= 0 && uvv.buffer < (int)buffers.size()) {
-                    const auto& ubuf = buffers[uvv.buffer];
-                    uvStride = uvv.byteStride ? uvv.byteStride : sizeof(float) * 2;
-                    uvBase = uvv.byteOffset + uvAcc.byteOffset;
-                    if (uvBase + (uvAcc.count - 1) * uvStride + sizeof(float) * 2 <= ubuf.size()) {
-                        uvBuf = ubuf.data();
-                        hasUv = true;
-                        uvs.resize(uvAcc.count * 2);
-                        for (size_t iVert = 0; iVert < uvAcc.count; ++iVert) {
-                            const float* fp = (const float*)(uvBuf + uvBase + iVert * uvStride);
-                            uvs[iVert * 2 + 0] = fp[0];
-                            uvs[iVert * 2 + 1] = fp[1];
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     struct Vertex { float px, py, pz, u, v; };
-    std::vector<Vertex> verts;
-    verts.resize(posAcc.count);
-    for (size_t iVert = 0; iVert < posAcc.count; ++iVert) {
-        const float* fp = (const float*)(pbuf.data() + pBase + iVert*pStride);
-        verts[iVert].px = fp[0];
-        verts[iVert].py = fp[1];
-        verts[iVert].pz = fp[2];
-        if (hasUv) {
-            verts[iVert].u = uvs[iVert * 2 + 0];
-            verts[iVert].v = uvs[iVert * 2 + 1];
-        } else {
-            verts[iVert].u = 0.0f;
-            verts[iVert].v = 0.0f;
-        }
-    }
 
-    std::vector<unsigned int> indices;
-    if (idxAccIndex >= 0 && idxAccIndex < (int)accessors.size()) {
-        const Accessor& ia = accessors[idxAccIndex];
-        if (ia.type == "SCALAR" && ia.count > 0) {
+    auto readAccessorFloat = [&](int accessorIndex, int expectedComponentType, const std::string& expectedType,
+        int expectedComponents, std::vector<float>& outFloats) -> bool
+        {
+            if (accessorIndex < 0 || accessorIndex >= (int)accessors.size()) return false;
+            const Accessor& a = accessors[accessorIndex];
+            if (a.componentType != expectedComponentType) return false;
+            if (a.type != expectedType) return false;
+            if (a.count == 0) return false;
+            if (a.bufferView < 0 || a.bufferView >= (int)views.size()) return false;
+            const BufferView& v = views[a.bufferView];
+            if (v.buffer < 0 || v.buffer >= (int)buffers.size()) return false;
+            const auto& buf = buffers[v.buffer];
+            size_t stride = v.byteStride ? v.byteStride : sizeof(float) * (size_t)expectedComponents;
+            size_t base = v.byteOffset + a.byteOffset;
+            if (base + (a.count - 1) * stride + sizeof(float) * (size_t)expectedComponents > buf.size()) return false;
+            outFloats.resize(a.count * (size_t)expectedComponents);
+            for (size_t iVert = 0; iVert < a.count; ++iVert) {
+                const float* fp = (const float*)(buf.data() + base + iVert * stride);
+                for (int c = 0; c < expectedComponents; ++c)
+                    outFloats[iVert * (size_t)expectedComponents + (size_t)c] = fp[c];
+            }
+            return true;
+        };
+
+    auto readAccessorIndices = [&](int accessorIndex, std::vector<unsigned int>& outIndices) -> bool
+        {
+            outIndices.clear();
+            if (accessorIndex < 0 || accessorIndex >= (int)accessors.size()) return false;
+            const Accessor& ia = accessors[accessorIndex];
+            if (ia.type != "SCALAR" || ia.count == 0) return false;
+            if (ia.bufferView < 0 || ia.bufferView >= (int)views.size()) return false;
             const BufferView& iv = views[ia.bufferView];
+            if (iv.buffer < 0 || iv.buffer >= (int)buffers.size()) return false;
             const auto& ibuf = buffers[iv.buffer];
             size_t iBase = iv.byteOffset + ia.byteOffset;
-            indices.resize(ia.count);
+            if (iBase >= ibuf.size()) return false;
+
+            outIndices.resize(ia.count);
             if (ia.componentType == 5121) {
-                const uint8_t* ip = (const uint8_t*)(ibuf.data()+iBase);
-                for (size_t k=0;k<ia.count;++k) indices[k]=(unsigned int)ip[k];
-            } else if (ia.componentType == 5123) {
-                const uint16_t* ip = (const uint16_t*)(ibuf.data()+iBase);
-                for (size_t k=0;k<ia.count;++k) indices[k]=(unsigned int)ip[k];
-            } else if (ia.componentType == 5125) {
-                const uint32_t* ip = (const uint32_t*)(ibuf.data()+iBase);
-                for (size_t k=0;k<ia.count;++k) indices[k]=(unsigned int)ip[k];
-            } else {
+                const uint8_t* ip = (const uint8_t*)(ibuf.data() + iBase);
+                for (size_t k = 0; k < ia.count; ++k) outIndices[k] = (unsigned int)ip[k];
+            }
+            else if (ia.componentType == 5123) {
+                const uint16_t* ip = (const uint16_t*)(ibuf.data() + iBase);
+                for (size_t k = 0; k < ia.count; ++k) outIndices[k] = (unsigned int)ip[k];
+            }
+            else if (ia.componentType == 5125) {
+                const uint32_t* ip = (const uint32_t*)(ibuf.data() + iBase);
+                for (size_t k = 0; k < ia.count; ++k) outIndices[k] = (unsigned int)ip[k];
+            }
+            else {
                 return false;
             }
-        }
-    }
+            return true;
+        };
 
-    GLuint texID = 0;
-    if (hasUv) {
+    auto readVec3 = [&](const JsonValue& arr, glm::vec3 def) -> glm::vec3 {
+        if (arr.type != JsonValue::Type::Array || arr.a.size() < 3) return def;
+        return glm::vec3((float)arr.a[0].n, (float)arr.a[1].n, (float)arr.a[2].n);
+        };
+
+    auto readQuat = [&](const JsonValue& arr) -> glm::quat {
+        if (arr.type != JsonValue::Type::Array || arr.a.size() < 4) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        float x = (float)arr.a[0].n;
+        float y = (float)arr.a[1].n;
+        float z = (float)arr.a[2].n;
+        float w = (float)arr.a[3].n;
+        return glm::quat(w, x, y, z);
+        };
+
+    auto nodeLocalMatrix = [&](const JsonValue& node) -> glm::mat4 {
+        const JsonValue* matJ = jsonGet(node, "matrix");
+        if (matJ && matJ->type == JsonValue::Type::Array && matJ->a.size() >= 16) {
+            glm::mat4 m(1.0f);
+            for (int c = 0; c < 4; ++c) {
+                for (int r = 0; r < 4; ++r) {
+                    m[c][r] = (float)matJ->a[(size_t)(c * 4 + r)].n;
+                }
+            }
+            return m;
+        }
+        glm::vec3 t(0.0f), s(1.0f);
+        glm::quat q(1.0f, 0.0f, 0.0f, 0.0f);
+        const JsonValue* tJ = jsonGet(node, "translation");
+        const JsonValue* sJ = jsonGet(node, "scale");
+        const JsonValue* rJ = jsonGet(node, "rotation");
+        if (tJ) t = readVec3(*tJ, t);
+        if (sJ) s = readVec3(*sJ, s);
+        if (rJ) q = readQuat(*rJ);
+        glm::mat4 mt = glm::translate(glm::mat4(1.0f), t);
+        glm::mat4 mr = glm::mat4_cast(q);
+        glm::mat4 ms = glm::scale(glm::mat4(1.0f), s);
+        return mt * mr * ms;
+        };
+
+    auto getPrimitiveMaterial = [&](const JsonValue& prim, glm::vec4& baseColor, int& imageIndex) -> void {
+        baseColor = glm::vec4(1.0f);
+        imageIndex = -1;
         const JsonValue* matsJ = jsonGet(root, "materials");
         const JsonValue* texsJ = jsonGet(root, "textures");
         const JsonValue* imgsJ = jsonGet(root, "images");
-        int materialIndex = -1;
-        const JsonValue* matJ = jsonGet(prim0, "material");
-        if (matJ && matJ->type == JsonValue::Type::Number) materialIndex = (int)matJ->n;
-        if (matsJ && texsJ && imgsJ &&
-            matsJ->type == JsonValue::Type::Array &&
-            texsJ->type == JsonValue::Type::Array &&
-            imgsJ->type == JsonValue::Type::Array &&
-            materialIndex >= 0 && materialIndex < (int)matsJ->a.size())
-        {
-            const JsonValue& material = matsJ->a[materialIndex];
-            const JsonValue* pbr = jsonGet(material, "pbrMetallicRoughness");
-            const JsonValue* bct = pbr ? jsonGet(*pbr, "baseColorTexture") : nullptr;
-            const JsonValue* ti = bct ? jsonGet(*bct, "index") : nullptr;
-            int textureIndex = (ti && ti->type == JsonValue::Type::Number) ? (int)ti->n : -1;
-            if (textureIndex >= 0 && textureIndex < (int)texsJ->a.size()) {
-                const JsonValue& tex = texsJ->a[textureIndex];
-                const JsonValue* srcJ = jsonGet(tex, "source");
-                int imageIndex = (srcJ && srcJ->type == JsonValue::Type::Number) ? (int)srcJ->n : -1;
-                if (imageIndex >= 0 && imageIndex < (int)imgsJ->a.size()) {
-                    const JsonValue& img = imgsJ->a[imageIndex];
-                    std::vector<unsigned char> imgBytes;
-                    const JsonValue* bvJ = jsonGet(img, "bufferView");
-                    const JsonValue* uriJ = jsonGet(img, "uri");
-                    if (bvJ && bvJ->type == JsonValue::Type::Number) {
-                        int bvIndex = (int)bvJ->n;
-                        if (bvIndex >= 0 && bvIndex < (int)views.size()) {
-                            const BufferView& iv = views[bvIndex];
-                            if (iv.buffer >= 0 && iv.buffer < (int)buffers.size()) {
-                                const auto& ib = buffers[iv.buffer];
-                                if (iv.byteOffset + iv.byteLength <= ib.size()) {
-                                    imgBytes.assign(ib.begin() + iv.byteOffset, ib.begin() + iv.byteOffset + iv.byteLength);
-                                }
-                            }
-                        }
-                    } else if (uriJ && uriJ->type == JsonValue::Type::String) {
-                        loadBinaryFile(dataDir_ + "/" + uriJ->s, imgBytes);
-                    }
+        const JsonValue* matJ = jsonGet(prim, "material");
+        int materialIndex = (matJ && matJ->type == JsonValue::Type::Number) ? (int)matJ->n : -1;
+        if (!matsJ || matsJ->type != JsonValue::Type::Array) return;
+        if (materialIndex < 0 || materialIndex >= (int)matsJ->a.size()) return;
+        if (!texsJ || !imgsJ || texsJ->type != JsonValue::Type::Array || imgsJ->type != JsonValue::Type::Array) return;
 
-                    if (!imgBytes.empty()) {
-                        int w = 0, h = 0, comp = 0;
-                        unsigned char* pixels = stbi_load_from_memory(imgBytes.data(), (int)imgBytes.size(), &w, &h, &comp, 4);
-                        if (pixels && w > 0 && h > 0) {
-                            glGenTextures(1, &texID);
-                            glBindTexture(GL_TEXTURE_2D, texID);
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-                            glGenerateMipmap(GL_TEXTURE_2D);
-                            glBindTexture(GL_TEXTURE_2D, 0);
-                        }
-                        if (pixels) stbi_image_free(pixels);
+        const JsonValue& material = matsJ->a[(size_t)materialIndex];
+
+        glm::vec3 emissiveFactor(0.0f);
+        float emissiveStrength = 1.0f;
+        {
+            const JsonValue* ef = jsonGet(material, "emissiveFactor");
+            if (ef && ef->type == JsonValue::Type::Array && ef->a.size() >= 3) {
+                emissiveFactor = glm::vec3((float)ef->a[0].n, (float)ef->a[1].n, (float)ef->a[2].n);
+            }
+            const JsonValue* ext = jsonGet(material, "extensions");
+            const JsonValue* khr = ext ? jsonGet(*ext, "KHR_materials_emissive_strength") : nullptr;
+            const JsonValue* es = khr ? jsonGet(*khr, "emissiveStrength") : nullptr;
+            if (es && es->type == JsonValue::Type::Number) emissiveStrength = (float)es->n;
+        }
+
+        const JsonValue* pbr = jsonGet(material, "pbrMetallicRoughness");
+        if (pbr) {
+            const JsonValue* bcf = jsonGet(*pbr, "baseColorFactor");
+            if (bcf && bcf->type == JsonValue::Type::Array && bcf->a.size() >= 4) {
+                baseColor = glm::vec4((float)bcf->a[0].n, (float)bcf->a[1].n, (float)bcf->a[2].n, (float)bcf->a[3].n);
+            }
+        }
+
+        auto textureIndexToImageIndex = [&](int textureIndex) -> int {
+            if (textureIndex < 0 || textureIndex >= (int)texsJ->a.size()) return -1;
+            const JsonValue& tex = texsJ->a[(size_t)textureIndex];
+            const JsonValue* srcJ = jsonGet(tex, "source");
+            int ii = (srcJ && srcJ->type == JsonValue::Type::Number) ? (int)srcJ->n : -1;
+            if (ii < 0 || ii >= (int)imgsJ->a.size()) return -1;
+            return ii;
+        };
+
+        int baseTexIdx = -1;
+        if (pbr) {
+            const JsonValue* bct = jsonGet(*pbr, "baseColorTexture");
+            const JsonValue* ti = bct ? jsonGet(*bct, "index") : nullptr;
+            if (ti && ti->type == JsonValue::Type::Number) baseTexIdx = (int)ti->n;
+        }
+
+        int emissiveTexIdx = -1;
+        {
+            const JsonValue* et = jsonGet(material, "emissiveTexture");
+            const JsonValue* ti = et ? jsonGet(*et, "index") : nullptr;
+            if (ti && ti->type == JsonValue::Type::Number) emissiveTexIdx = (int)ti->n;
+        }
+
+        if (baseTexIdx >= 0) {
+            imageIndex = textureIndexToImageIndex(baseTexIdx);
+        }
+        else if (emissiveTexIdx >= 0) {
+            imageIndex = textureIndexToImageIndex(emissiveTexIdx);
+            baseColor = glm::vec4(emissiveFactor * emissiveStrength, 1.0f);
+        }
+        };
+
+    std::unordered_map<int, GLuint> texCache;
+    auto loadTextureFromImageIndex = [&](int imageIndex) -> GLuint {
+        if (imageIndex < 0) return 0;
+        auto it = texCache.find(imageIndex);
+        if (it != texCache.end()) return it->second;
+        const JsonValue* imgsJ = jsonGet(root, "images");
+        if (!imgsJ || imgsJ->type != JsonValue::Type::Array) return 0;
+        if (imageIndex >= (int)imgsJ->a.size()) return 0;
+        const JsonValue& img = imgsJ->a[(size_t)imageIndex];
+
+        std::vector<unsigned char> imgBytes;
+        const JsonValue* bvJ = jsonGet(img, "bufferView");
+        const JsonValue* uriJ = jsonGet(img, "uri");
+        if (bvJ && bvJ->type == JsonValue::Type::Number) {
+            int bvIndex = (int)bvJ->n;
+            if (bvIndex >= 0 && bvIndex < (int)views.size()) {
+                const BufferView& iv = views[(size_t)bvIndex];
+                if (iv.buffer >= 0 && iv.buffer < (int)buffers.size()) {
+                    const auto& ib = buffers[(size_t)iv.buffer];
+                    if (iv.byteOffset + iv.byteLength <= ib.size()) {
+                        imgBytes.assign(ib.begin() + iv.byteOffset, ib.begin() + iv.byteOffset + iv.byteLength);
                     }
                 }
             }
         }
+        else if (uriJ && uriJ->type == JsonValue::Type::String) {
+            std::string uri = uriJ->s;
+            loadBinaryFile(dataDir_ + "/" + uri, imgBytes);
+        }
+
+        if (imgBytes.empty()) return 0;
+        int w = 0, h = 0, comp = 0;
+        unsigned char* pixels = stbi_load_from_memory(imgBytes.data(), (int)imgBytes.size(), &w, &h, &comp, 4);
+        if (!pixels || w <= 0 || h <= 0) {
+            if (pixels) stbi_image_free(pixels);
+            return 0;
+        }
+
+        GLuint texID = 0;
+        glGenTextures(1, &texID);
+        glBindTexture(GL_TEXTURE_2D, texID);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        stbi_image_free(pixels);
+        texCache.emplace(imageIndex, texID);
+        return texID;
+        };
+
+    out.parts.clear();
+    out.cpuPositions.clear();
+    out.cpuIndices.clear();
+
+    const JsonValue* scenesJ = jsonGet(root, "scenes");
+    const JsonValue* nodesJ = jsonGet(root, "nodes");
+    int sceneIndex = 0;
+    const JsonValue* sceneJ = jsonGet(root, "scene");
+    if (sceneJ && sceneJ->type == JsonValue::Type::Number) sceneIndex = (int)sceneJ->n;
+
+    std::vector<int> rootNodes;
+    if (scenesJ && scenesJ->type == JsonValue::Type::Array &&
+        sceneIndex >= 0 && sceneIndex < (int)scenesJ->a.size()) {
+        const JsonValue& sc = scenesJ->a[(size_t)sceneIndex];
+        const JsonValue* sn = jsonGet(sc, "nodes");
+        if (sn && sn->type == JsonValue::Type::Array) {
+            for (const auto& v : sn->a) {
+                if (v.type == JsonValue::Type::Number) rootNodes.push_back((int)v.n);
+            }
+        }
+    }
+    if (rootNodes.empty() && nodesJ && nodesJ->type == JsonValue::Type::Array) {
+        for (int iNode = 0; iNode < (int)nodesJ->a.size(); ++iNode) rootNodes.push_back(iNode);
     }
 
-    out.cpuPositions.clear();
-    out.cpuPositions.reserve(verts.size());
-    for (const auto& v : verts) out.cpuPositions.push_back(glm::vec3(v.px, v.py, v.pz));
-    out.cpuIndices = indices;
+    auto appendPrimitive = [&](const JsonValue& prim, const glm::mat4& xform) -> void
+        {
+            const JsonValue* modeJ = jsonGet(prim, "mode");
+            if (modeJ && modeJ->type == JsonValue::Type::Number && (int)modeJ->n != 4) return;
+            const JsonValue* attrsJ = jsonGet(prim, "attributes");
+            if (!attrsJ || attrsJ->type != JsonValue::Type::Object) return;
+            const JsonValue* posAccJ = jsonGet(*attrsJ, "POSITION");
+            if (!posAccJ || posAccJ->type != JsonValue::Type::Number) return;
+            int posAccIndex = (int)posAccJ->n;
+
+            int uvAccIndex = -1;
+            const JsonValue* uvAccJ = jsonGet(*attrsJ, "TEXCOORD_0");
+            if (uvAccJ && uvAccJ->type == JsonValue::Type::Number) uvAccIndex = (int)uvAccJ->n;
+
+            std::vector<float> posFloats;
+            if (!readAccessorFloat(posAccIndex, 5126, "VEC3", 3, posFloats)) return;
+            size_t vertCount = posFloats.size() / 3;
+
+            std::vector<float> uvFloats;
+            bool hasUv = false;
+            if (uvAccIndex >= 0) hasUv = readAccessorFloat(uvAccIndex, 5126, "VEC2", 2, uvFloats);
+
+            int idxAccIndex = -1;
+            const JsonValue* indicesJ = jsonGet(prim, "indices");
+            if (indicesJ && indicesJ->type == JsonValue::Type::Number) idxAccIndex = (int)indicesJ->n;
+            std::vector<unsigned int> indices;
+            bool hasIndices = (idxAccIndex >= 0) && readAccessorIndices(idxAccIndex, indices);
+            if (!hasIndices) {
+                indices.resize(vertCount);
+                for (size_t i = 0; i < vertCount; ++i) indices[i] = (unsigned int)i;
+            }
+            if (indices.size() < 3) return;
+
+            std::vector<Vertex> verts;
+            verts.resize(vertCount);
+            for (size_t i = 0; i < vertCount; ++i) {
+                glm::vec4 lp(posFloats[i * 3 + 0], posFloats[i * 3 + 1], posFloats[i * 3 + 2], 1.0f);
+                glm::vec4 wp = xform * lp;
+                verts[i].px = wp.x;
+                verts[i].py = wp.y;
+                verts[i].pz = wp.z;
+                if (hasUv && (i * 2 + 1) < uvFloats.size()) {
+                    verts[i].u = uvFloats[i * 2 + 0];
+                    verts[i].v = uvFloats[i * 2 + 1];
+                }
+                else {
+                    verts[i].u = 0.0f;
+                    verts[i].v = 0.0f;
+                }
+            }
+
+            glm::vec4 baseColor(1.0f);
+            int imageIndex = -1;
+            getPrimitiveMaterial(prim, baseColor, imageIndex);
+            GLuint texID = (hasUv && imageIndex >= 0) ? loadTextureFromImageIndex(imageIndex) : 0;
+
+            GpuSubMesh part;
+            part.baseColorFactor = baseColor;
+            part.texture = texID;
+            part.textured = (texID != 0);
+
+            glGenVertexArrays(1, &part.vao);
+            glGenBuffers(1, &part.vbo);
+            glBindVertexArray(part.vao);
+            glBindBuffer(GL_ARRAY_BUFFER, part.vbo);
+            glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(sizeof(float) * 3));
+            glEnableVertexAttribArray(1);
+            if (!indices.empty()) {
+                glGenBuffers(1, &part.ebo);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, part.ebo);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+                part.indexCount = (int)indices.size();
+                part.indexed = true;
+            }
+            else {
+                part.indexCount = (int)vertCount;
+                part.indexed = false;
+            }
+            glBindVertexArray(0);
+
+            unsigned int baseVertex = (unsigned int)out.cpuPositions.size();
+            out.cpuPositions.reserve(out.cpuPositions.size() + verts.size());
+            for (const auto& v : verts) out.cpuPositions.push_back(glm::vec3(v.px, v.py, v.pz));
+            out.cpuIndices.reserve(out.cpuIndices.size() + indices.size());
+            for (auto ii : indices) out.cpuIndices.push_back(baseVertex + ii);
+
+            out.parts.push_back(part);
+        };
+
+    if (nodesJ && nodesJ->type == JsonValue::Type::Array) {
+        int maxDepth = (int)nodesJ->a.size() + 4;
+        std::function<void(int, const glm::mat4&, int)> visit = [&](int nodeIndex, const glm::mat4& parent, int depth) {
+            if (nodeIndex < 0 || nodeIndex >= (int)nodesJ->a.size()) return;
+            if (depth > maxDepth) return;
+            const JsonValue& node = nodesJ->a[(size_t)nodeIndex];
+            glm::mat4 local = nodeLocalMatrix(node);
+            glm::mat4 world = parent * local;
+            const JsonValue* meshJ = jsonGet(node, "mesh");
+            int meshIndex = (meshJ && meshJ->type == JsonValue::Type::Number) ? (int)meshJ->n : -1;
+            if (meshIndex >= 0 && meshIndex < (int)meshesJ->a.size()) {
+                const JsonValue& mesh = meshesJ->a[(size_t)meshIndex];
+                const JsonValue* primsJ = jsonGet(mesh, "primitives");
+                if (primsJ && primsJ->type == JsonValue::Type::Array) {
+                    for (const auto& prim : primsJ->a) appendPrimitive(prim, world);
+                }
+            }
+            const JsonValue* childrenJ = jsonGet(node, "children");
+            if (childrenJ && childrenJ->type == JsonValue::Type::Array) {
+                for (const auto& c : childrenJ->a) {
+                    if (c.type == JsonValue::Type::Number) visit((int)c.n, world, depth + 1);
+                }
+            }
+            };
+
+        for (int rn : rootNodes) visit(rn, glm::mat4(1.0f), 0);
+    }
+    else {
+        for (const auto& mesh : meshesJ->a) {
+            const JsonValue* primsJ = jsonGet(mesh, "primitives");
+            if (!primsJ || primsJ->type != JsonValue::Type::Array) continue;
+            for (const auto& prim : primsJ->a) appendPrimitive(prim, glm::mat4(1.0f));
+        }
+    }
+
+    out.boundsValid = false;
+    out.authoredZUp = false;
+    if (!out.cpuPositions.empty()) {
+        glm::vec3 mn(1e9f), mx(-1e9f);
+        for (const auto& p : out.cpuPositions) {
+            mn = glm::min(mn, p);
+            mx = glm::max(mx, p);
+        }
+        out.aabbMin = mn;
+        out.aabbMax = mx;
+        out.boundsValid = true;
+
+        glm::vec3 ext = mx - mn;
+        float maxXY = std::max(ext.x, ext.y);
+        float maxOther = std::max(maxXY, ext.z);
+        if (maxOther > 1e-6f) {
+            float ratioZ = ext.z / std::max(1e-6f, std::max(ext.x, ext.y));
+            out.authoredZUp = (ratioZ < 0.18f);
+        }
+    }
+
     out.triCdf.clear();
     out.triAreaSum = 0.0f;
     if (!out.cpuPositions.empty()) {
@@ -383,30 +630,8 @@ bool MeshLoader::buildGlb(const std::string& meshFile, GpuMesh& out)
         }
     }
 
-    glGenVertexArrays(1, &out.vao);
-    glGenBuffers(1, &out.vbo);
-    glBindVertexArray(out.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, out.vbo);
-    glBufferData(GL_ARRAY_BUFFER, verts.size()*sizeof(Vertex), verts.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(sizeof(float) * 3));
-    glEnableVertexAttribArray(1);
-    if (!indices.empty()) {
-        glGenBuffers(1, &out.ebo);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, out.ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size()*sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
-        out.indexCount = (int)indices.size();
-        out.indexed    = true;
-    } else {
-        out.indexCount = (int)posAcc.count;
-        out.indexed    = false;
-    }
-    glBindVertexArray(0);
-    out.valid = true;
-    out.texture = texID;
-    out.textured = (texID != 0);
-    return true;
+    out.valid = !out.parts.empty();
+    return out.valid;
 }
 
 // ---------------------------------------------------------------------------

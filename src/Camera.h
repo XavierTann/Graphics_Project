@@ -12,6 +12,11 @@ public:
     glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.5f);
     glm::vec3 up = glm::vec3(0.0f, 0.0f, 1.0f);
 
+    void setFpsMode(bool enabled);
+    bool isFpsMode() const { return fpsMode_; }
+    void setFpsPosition(const glm::vec3& p) { fpsPos_ = p; }
+    glm::vec3 getForward() const;
+    void onFpsMouseMove(float xpos, float ypos);
 
 	void update(); // Call this after changing any of the above parameters
 
@@ -38,6 +43,9 @@ private:
     bool  isPanning_ = false;
     float lastMouseX_ = 0.0f;
     float lastMouseY_ = 0.0f;
+    bool  fpsMode_ = false;
+    bool  fpsLookInit_ = false;
+    glm::vec3 fpsPos_ = glm::vec3(0.0f, -2.5f, 0.8f);
 
 	//default camera parameters
     glm::vec3 position_ = glm::vec3(0.0f, -2.5f, 0.8f);

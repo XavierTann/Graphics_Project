@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(SOURCES
     src/main.cpp
-    src/Config.cpp
     src/BillboardRenderer.cpp
     src/Camera.cpp
     src/Scene.cpp

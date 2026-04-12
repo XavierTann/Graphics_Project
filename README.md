@@ -19,13 +19,12 @@ Ember Engine is a real-time, interactive fire simulation tool designed for graph
 - **Emitter Settings**: Real-time adjustment of fire radius, base size, particle lifetime, and speed.
 - **Global Parameters**: Control buoyancy, cooling rate, and turbulence amplitude/frequency.
 - **Presets**: Quick-start configurations for Lighter, Campfire, and Wildfire.
-- **Save/Load**: Persist your simulation settings to `config.txt`.
 - **Objects Panel**: Lists mesh files from `./data`. Objects can be placed, dragged in the scene, and set to burn/spread fire.
 
 ### Camera System
 - **Orbit Camera**: Rotate around the fire using mouse drag.
-- **Zoom**: Scroll or use `Z`/`X` keys to zoom in/out.
-- **Pan**: Arrow keys to move the camera vertically.
+- **Zoom**: Scroll to zoom in/out.
+- **Pan**: Middle-mouse drag to pan.
 
 ## Building and Running
 
@@ -103,13 +102,11 @@ docker run --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix fire-simula
 | Input | Action |
 | :--- | :--- |
 | **Mouse Left Drag (empty space)** | Rotate Camera |
-| **Mouse Left Drag (on object)** | Drag Object on its height plane |
+| **Mouse Left Drag (on object)** | Drag Object on the floor (X/Y) |
 | **Mouse Middle Drag** | Pan Camera |
 | **Mouse Scroll** | Zoom In/Out |
-| **Arrow Up/Down** | Move Camera Vertically |
-| **Z / X** | Zoom In/Out |
-| **F5** | Save Config |
-| **F9** | Load Config |
+| **W / A / S / D** | Move Selected Object on floor (X/Y) |
+| **Q / E** | Move Selected Object Up/Down (Z) |
 | **ESC** | Exit |
 
 ## Project Structure

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -15,7 +15,6 @@
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\BillboardRenderer.cpp" />
     <ClCompile Include="src\MeshLoader.cpp" />
-    <ClCompile Include="src\NavierStokes.cpp" />
     <ClCompile Include="src\Particles.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Renderer.cpp" />

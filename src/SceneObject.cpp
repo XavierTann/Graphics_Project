@@ -23,12 +23,6 @@ int SceneObject::update(float dt,
     if (fuelMax < 0.1f) fuelMax = 0.1f;
     if (fuel > fuelMax) fuel = fuelMax;
 
-    // Transition to ash when fuel is gone (we fade separately)
-    if (fuel <= 0.0f) {
-        burning = false;
-        ash = 1.0f;
-    }
-
     // --- Ignition check ---
     if (!burning && fuel > 0.0f && burnability > 0.0f) {
         // Proximity to the main emitter
@@ -59,6 +53,8 @@ int SceneObject::update(float dt,
             ignitionLocal.z = 0.0f;
             float len = glm::length(ignitionLocal);
             if (len > 0.85f) ignitionLocal *= (0.85f / len);
+            burnTime = 0.0f;
+            fadeProgress = 0.0f;
         }
         burnTime += dt;
         float spreadSpeed = 0.65f + 1.45f * std::clamp(intensity, 0.0f, 1.0f);
@@ -66,19 +62,26 @@ int SceneObject::update(float dt,
         if (target > fadeProgress) fadeProgress = target;
     }
 
-    if (!burning) {
-        fadeProgress = 1.0f;
-    }
-
     if (burning && fuel > 0.0f) {
         float burnMul = (0.4f + intensity) * (0.2f + burnability);
         fuel = std::max(0.0f, fuel - dt * burnRate * burnMul);
         ash = std::clamp(1.0f - (fuel / fuelMax), 0.0f, 1.0f);
     }
-
-    if (!burning && ash >= 1.0f) {
-        float fadeRate = 0.18f + 0.55f * burnability;
-        alpha = std::max(0.0f, alpha - dt * fadeRate);
+    if (burning && fuel <= 0.0f) {
+        burning = false;
+        ash = 1.0f;
+        alpha = 0.0f;
+        return 0;
+    }
+    if (!burning) {
+        alpha = 1.0f;
+    }
+    else {
+        if (ash > fadeProgress) fadeProgress = ash;
+        float spread = std::clamp(fadeProgress, 0.0f, 1.0f);
+        float fade = std::clamp((ash - 0.65f) / 0.35f, 0.0f, 1.0f);
+        fade = fade * fade * (3.0f - 2.0f * fade);
+        alpha = std::clamp(1.0f - fade * spread, 0.0f, 1.0f);
     }
 
     // --- Accumulate particle spawn ---
