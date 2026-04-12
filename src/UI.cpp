@@ -375,12 +375,9 @@ void UI::drawControlsPanel(const ImGuiIO& io)
 
             ImGui::TextDisabled("behaviour");
             ImGui::SliderFloat("Buoyancy", &scene_->globals.buoyancy, 0.0f, 5.0f);
-            ImGui::SliderFloat("Cooling", &scene_->globals.cooling, 0.01f, 1.0f);
-
             ImGui::Spacing();
             ImGui::TextDisabled("turbulence");
             ImGui::SliderFloat("Amplitude", &scene_->globals.turbAmp, 0.0f, 2.0f);
-            ImGui::SliderFloat("Frequency", &scene_->globals.turbFreq, 0.1f, 5.0f);
 
             ImGui::Spacing();
             ImGui::Separator();
