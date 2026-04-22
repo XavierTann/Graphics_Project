@@ -98,6 +98,13 @@ docker run --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix fire-simula
 | `shaders/` / `shaderSource.h` | GLSL sources used by the app |
 | `data/` | GLTF/GLB meshes for the objects panel |
 
+## Hidden game mode
+
+Access it with secret code: **33550336**
+| **W A S D** | To walk |
+| **Left click** | To shoot |
+| **Right click** | To shield |
+
 ## Credits
 
 OpenGL; Dear ImGui; GLFW; GLAD; GLM; LearnOpenGL-style helpers under `includes/learnopengl/`.
