@@ -100,10 +100,13 @@ docker run --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix fire-simula
 
 ## Hidden game mode
 
-Access it with secret code: **33550336**
+Access with secret code: **33550336** (type these numbers in directly with the keyboard)
+| Input | Action |
+| :--- | :--- |
 | **W A S D** | To walk |
 | **Left click** | To shoot |
 | **Right click** | To shield |
+Rules: Players will have 3 lives, if hit by flame 3 times, they will automatically go back to the fire simulation, players can restrt by entering the secret code again. If player's fireball hits the dragon, dragon will start to burn away and die, by hitting the dragon multiple times with fireball, the dragon will burn away faster. If the shield is hit by the dragon's fireball, the shield will burn away and players have to activate another shield to use it again.
 
 ## Credits
 
