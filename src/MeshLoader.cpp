@@ -749,7 +749,7 @@ bool MeshLoader::jsonParseObject(const std::string& src, size_t& i, JsonValue& o
         i++;
         JsonValue val; jsonSkipWs(src,i);
         if (!jsonParseValue(src,i,val)) return false;
-        out.o.emplace(std::move(key),std::move(val));
+        out.o.emplace(std::move(key), std::make_shared<JsonValue>(std::move(val)));
         jsonSkipWs(src,i);
         if (i>=src.size()) return false;
         if (src[i]==',') { i++; continue; }
@@ -778,5 +778,5 @@ const MeshLoader::JsonValue* MeshLoader::jsonGet(const JsonValue& obj, const cha
 {
     if (obj.type!=JsonValue::Type::Object) return nullptr;
     auto it = obj.o.find(key);
-    return (it==obj.o.end()) ? nullptr : &it->second;
+    return (it==obj.o.end() || !it->second) ? nullptr : it->second.get();
 }

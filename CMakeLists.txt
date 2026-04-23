@@ -65,6 +65,20 @@ if(APPLE)
     )
 endif()
 
+if(WIN32)
+    target_compile_definitions(FireSimulator PRIVATE
+        GLFW_EXPOSE_NATIVE_WIN32
+        GLFW_EXPOSE_NATIVE_WGL
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    target_compile_definitions(FireSimulator PRIVATE
+        GLFW_EXPOSE_NATIVE_X11
+        GLFW_EXPOSE_NATIVE_GLX
+    )
+endif()
+
 if(UNIX AND NOT APPLE)
     target_link_libraries(FireSimulator PRIVATE pthread dl)
 endif()

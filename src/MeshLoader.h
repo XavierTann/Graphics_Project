@@ -4,6 +4,7 @@
 #endif
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+#include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -74,7 +75,7 @@ private:
         double n = 0.0;
         std::string s;
         std::vector<JsonValue> a;
-        std::unordered_map<std::string, JsonValue> o;
+        std::unordered_map<std::string, std::shared_ptr<JsonValue>> o;
     };
 
     // JSON parsing functions

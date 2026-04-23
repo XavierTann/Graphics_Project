@@ -149,11 +149,15 @@ cmake --build .
 
 ### Docker
 
-The repository also includes a `Dockerfile` for containerized builds. GUI execution still requires host display and GPU setup.
+The repository also includes a `Dockerfile` for containerized builds. GUI execution still requires host display and GPU setup. (below set up is for Debian/Ubuntu)
 
 ```bash
 docker build -t flamesimulator .
-docker run -it --rm --name flamesimulator flamesimulator
+docker run --rm -it \
+  --name flamesimulator \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  flamesimulator
 ```
 
 ## Runtime Architecture
