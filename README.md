@@ -126,6 +126,7 @@ cmake --build . --config Release
 .\Release\FireSimulator.exe
 ```
 
+
 ### macOS
 
 ```bash
@@ -134,6 +135,15 @@ mkdir -p build && cd build
 cmake ..
 cmake --build .
 ./FireSimulator
+```
+
+
+### Running the prebuilt executable
+
+A prebuilt executable is included in the root folder:
+
+```bash
+./FireSimulatorExecutable
 ```
 
 ### Linux
